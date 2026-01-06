@@ -1,0 +1,12 @@
+[package]
+name = "lsp"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["lsp-generator"]
+
+[dependencies]
+
+[build-dependencies]
+lsp-generator = { path = "lsp-generator" }
