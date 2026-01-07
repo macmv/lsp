@@ -227,7 +227,22 @@ fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool, n
 
     name_hints.push(to_pascal_case(&prop.name));
 
-    write_type(g, &prop.ty, name_hints);
+    if prop.optional {
+      if let Type::Or { items } = &prop.ty {
+        let mut items = items.clone();
+        if !items.iter().any(|item| item.is_null()) {
+          items.push(Type::Base { name: BaseType::Null });
+        }
+        write_type(g, &Type::Or { items }, name_hints);
+      } else {
+        g.write("Option<");
+        write_type(g, &prop.ty, name_hints);
+        g.write(">");
+      }
+    } else {
+      write_type(g, &prop.ty, name_hints);
+    }
+
     g.writeln(",");
   }
 }
