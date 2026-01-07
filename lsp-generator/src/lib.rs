@@ -28,6 +28,26 @@ pub fn generate() {
   for ty in &spec.structures {
     generate_struct(&mut g, ty);
   }
+
+  while g.has_types() {
+    let types = g.drain_types();
+
+    for (name, ty) in types {
+      g.writeln(format_args!("pub struct {} {{", name));
+      for prop in &ty.properties {
+        g.write_doc(&prop.documentation);
+        if prop.name == "type" {
+          g.write("#[serde(rename = \"type\")]");
+          g.write("ty: ");
+        } else {
+          g.write(format_args!("pub {}: ", prop.name));
+        }
+        write_type(&mut g, &prop.ty);
+        g.writeln(",");
+      }
+      g.writeln("}");
+    }
+  }
 }
 
 fn generate_struct(g: &mut Generator, ty: &Structure) {
@@ -37,7 +57,12 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
   g.writeln(format_args!("pub struct {} {{", ty.name));
   for field in ty.properties.iter() {
     g.write_doc(&field.documentation);
-    g.write(format_args!("pub {}: ", field.name));
+    if field.name == "type" {
+      g.write("#[serde(rename = \"type\")]");
+      g.write("ty: ");
+    } else {
+      g.write(format_args!("pub {}: ", field.name));
+    }
     write_type(g, &field.ty);
     g.writeln(",");
   }
@@ -180,14 +205,14 @@ fn write_type(g: &mut Generator, ty: &Type) {
     }
 
     Type::Literal { value } => {
-      g.writeln("{");
-      for prop in &value.properties {
-        g.write_doc(&prop.documentation);
-        g.write(format_args!("pub {}: ", prop.name));
-        write_type(g, &prop.ty);
-        g.writeln(",");
+      if value.properties.is_empty() {
+        write_type(g, &Type::Base { name: "null".into() });
+      } else {
+        let name = value.properties.iter().map(|p| p.name.clone()).collect::<Vec<_>>().join("");
+
+        g.write(&name);
+        g.add_type(name, value.clone());
       }
-      g.writeln("}");
     }
   }
 }
