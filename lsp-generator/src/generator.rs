@@ -1,5 +1,5 @@
 use std::{
-  fmt::Write,
+  fmt::{Display, Write},
   path::{Path, PathBuf},
   process::Command,
 };
@@ -14,7 +14,8 @@ impl Generator {
     Generator { output: String::new(), path: path.as_ref().to_path_buf() }
   }
 
-  pub fn write(&mut self, text: &str) { writeln!(self.output, "{text}").unwrap(); }
+  pub fn writeln(&mut self, text: impl Display) { writeln!(self.output, "{text}").unwrap(); }
+  pub fn write(&mut self, text: impl Display) { write!(self.output, "{text}").unwrap(); }
   pub fn write_doc(&mut self, doc: &str) {
     for line in doc.lines() {
       writeln!(self.output, "/// {line}").unwrap();
