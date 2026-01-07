@@ -2,6 +2,7 @@ use crate::spec::Spec;
 
 const URL: &str = "https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/metaModel/metaModel.json";
 
+mod generator;
 mod spec;
 
 pub fn generate() {
