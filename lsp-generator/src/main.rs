@@ -84,6 +84,11 @@ fn generate_struct_fields(
     }
 
     g.write_doc(&field.documentation);
+
+    if field.optional {
+      g.writeln("#[serde(skip_serializing_if = \"Option::is_none\")]");
+    }
+
     let field_name = to_field_name(&field.name);
     if field_name != field.name {
       g.writeln(format_args!("#[serde(rename = \"{}\")]", field.name));
@@ -165,6 +170,11 @@ fn should_inline(ty: &Type) -> Option<String> {
 fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool, name_hint: &str) {
   for prop in &lit.properties {
     g.write_doc(&prop.documentation);
+
+    if prop.optional {
+      g.writeln("#[serde(skip_serializing_if = \"Option::is_none\")]");
+    }
+
     let field_name = to_field_name(&prop.name);
     if field_name != prop.name {
       g.writeln(format_args!("#[serde(rename = \"{}\")]", prop.name));
