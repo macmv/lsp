@@ -1,9 +1,13 @@
 use std::{
+  borrow::Cow,
   collections::HashSet,
   fmt::{Display, Write},
   path::{Path, PathBuf},
   process::Command,
+  sync::LazyLock,
 };
+
+use regex::Regex;
 
 use crate::spec::Literal;
 
@@ -14,6 +18,10 @@ pub struct Generator {
   type_names: HashSet<String>,
   types:      Vec<(String, Literal)>,
 }
+
+const LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\}").unwrap());
+const LINK_NAMED_REGEX: LazyLock<Regex> =
+  LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\s(\S+)\}").unwrap());
 
 impl Generator {
   pub fn new(path: impl AsRef<Path>) -> Self {
@@ -28,6 +36,19 @@ impl Generator {
   pub fn writeln(&mut self, text: impl Display) { writeln!(self.output, "{text}").unwrap(); }
   pub fn write(&mut self, text: impl Display) { write!(self.output, "{text}").unwrap(); }
   pub fn write_doc(&mut self, doc: &str) {
+    let doc = LINK_REGEX
+      .replace_all(doc, |caps: &regex::Captures| format!("[`{}`]", caps.get(1).unwrap().as_str()));
+    let doc = LINK_NAMED_REGEX.replace_all(&doc, |caps: &regex::Captures| {
+      let ty = caps.get(1).unwrap().as_str();
+      let mut text = Cow::Borrowed(caps.get(2).unwrap().as_str());
+
+      if text.ends_with("[]") {
+        text = format!("Vec<{}>", text[0..text.len() - 2].trim()).into();
+      }
+
+      format!("[`{text}`]({ty})")
+    });
+
     for line in doc.lines() {
       writeln!(self.output, "/// {line}").unwrap();
     }
