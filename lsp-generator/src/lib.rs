@@ -19,14 +19,14 @@ pub fn generate() {
   g.writeln("pub mod notification;");
 
   g.writeln("");
-  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln("#[derive(Serialize, Deserialize, Clone)]");
   g.writeln("#[serde(untagged)]");
   g.writeln("pub enum Or2<A, B> {");
   g.writeln("A(A),");
   g.writeln("B(B),");
   g.writeln("}");
   g.writeln("");
-  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln("#[derive(Serialize, Deserialize, Clone)]");
   g.writeln("#[serde(untagged)]");
   g.writeln("pub enum Or3<A, B, C> {");
   g.writeln("A(A),");
@@ -34,13 +34,31 @@ pub fn generate() {
   g.writeln("C(C),");
   g.writeln("}");
   g.writeln("");
-  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln("#[derive(Serialize, Deserialize, Clone)]");
   g.writeln("#[serde(untagged)]");
   g.writeln("pub enum Or4<A, B, C, D> {");
   g.writeln("A(A),");
   g.writeln("B(B),");
   g.writeln("C(C),");
   g.writeln("D(D),");
+  g.writeln("}");
+  g.writeln("");
+  g.writeln("impl<A: Default, B> Default for Or2<A, B> {");
+  g.writeln("fn default() -> Self {");
+  g.writeln("Or2::A(A::default())");
+  g.writeln("}");
+  g.writeln("}");
+  g.writeln("");
+  g.writeln("impl<A: Default, B, C> Default for Or3<A, B, C> {");
+  g.writeln("fn default() -> Self {");
+  g.writeln("Or3::A(A::default())");
+  g.writeln("}");
+  g.writeln("}");
+  g.writeln("");
+  g.writeln("impl<A: Default, B, C, D> Default for Or4<A, B, C, D> {");
+  g.writeln("fn default() -> Self {");
+  g.writeln("Or4::A(A::default())");
+  g.writeln("}");
   g.writeln("}");
 
   for ty in &spec.structures {
@@ -59,7 +77,7 @@ pub fn generate() {
     let types = g.drain_types();
 
     for (name, ty) in types {
-      g.writeln("#[derive(Serialize, Deserialize)]");
+      g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
       g.writeln(format_args!("pub struct {} {{", name));
       for prop in &ty.properties {
         g.write_doc(&prop.documentation);
@@ -83,7 +101,7 @@ pub fn generate() {
 fn generate_struct(g: &mut Generator, ty: &Structure) {
   g.writeln("");
   g.write_doc(&ty.documentation);
-  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
   g.writeln(format_args!("pub struct {} {{", ty.name));
   for field in ty.properties.iter() {
     g.write_doc(&field.documentation);
@@ -133,22 +151,25 @@ fn generate_enum(g: &mut Generator, ty: &Enumeration) {
   g.write_doc(&ty.documentation);
   match ty.ty {
     Type::Base { name: BaseType::String } => {
-      g.writeln("#[derive(Serialize, Deserialize)]");
+      g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
       g.writeln("#[serde(untagged)]");
     }
     Type::Base { name: BaseType::Integer | BaseType::Uinteger } => {
-      g.writeln("#[derive(Clone, Copy)]");
+      g.writeln("#[derive(Clone, Copy, Default)]");
     }
 
     _ => panic!("invalid enum type: {:#?}", ty.ty),
   }
 
   g.writeln(format_args!("pub enum {} {{", ty.name));
-  for variant in ty.values.iter() {
+  for (i, variant) in ty.values.iter().enumerate() {
     g.write_doc(&variant.documentation);
 
     match &variant.value {
       NumberOrString::Number(n) => {
+        if i == 0 {
+          g.writeln("#[default]");
+        }
         if ty.supports_custom_values {
           g.writeln(format_args!("{},", to_pascal_case(&variant.name)));
         } else {
@@ -157,6 +178,9 @@ fn generate_enum(g: &mut Generator, ty: &Enumeration) {
       }
       NumberOrString::String(s) => {
         g.writeln(format_args!("#[serde(rename = \"{}\")]", s));
+        if i == 0 {
+          g.writeln("#[default]");
+        }
         g.writeln(format_args!("{},", to_pascal_case(&variant.name)));
       }
     }
@@ -321,15 +345,23 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
         write_type(g, &items[0]);
         g.writeln(";");
       } else {
-        g.writeln("#[derive(Serialize, Deserialize)]");
+        g.writeln("#[derive(Serialize, Deserialize, Clone)]");
         g.writeln("#[serde(untagged)]");
         g.writeln(format_args!("pub enum {} {{", ty.name));
-        for it in items {
+        for it in &items {
           g.write(format_args!("{}(", variant_name(&it)));
-          write_type(g, &it);
+          write_type(g, it);
           g.writeln("),");
         }
         g.writeln("}");
+
+        g.writeln("");
+        g.writeln(format_args!("impl Default for {} {{", ty.name));
+        g.writeln("fn default() -> Self {");
+        g.writeln(format_args!("{}::{}(Default::default())", ty.name, variant_name(&items[0])));
+        g.writeln("}");
+        g.writeln("}");
+        g.writeln("");
       }
     }
 
