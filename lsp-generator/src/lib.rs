@@ -143,6 +143,13 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
     g.writeln(",");
   }
 
+  for extends in &ty.extends {
+    g.writeln("#[serde(flatten)]");
+    g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
+    write_type(g, &extends);
+    g.writeln(",");
+  }
+
   g.writeln(format_args!("}}"));
 }
 
