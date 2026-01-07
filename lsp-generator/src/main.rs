@@ -211,8 +211,7 @@ fn generate_enum(g: &mut Generator, ty: &Enumeration) {
   g.write_doc(&ty.documentation);
   match ty.ty {
     Type::Base { name: BaseType::String } => {
-      write_derives(g);
-      g.writeln("#[serde(untagged)]");
+      g.writeln("#[derive(Debug, Default, Clone)]");
     }
     Type::Base { name: BaseType::Integer | BaseType::Uinteger } => {
       g.writeln("#[derive(Debug, Default, Clone, Copy)]");
@@ -236,8 +235,7 @@ fn generate_enum(g: &mut Generator, ty: &Enumeration) {
           g.writeln(format_args!("{} = {},", to_pascal_case(&variant.name), n));
         }
       }
-      NumberOrString::String(s) => {
-        g.writeln(format_args!("#[serde(rename = \"{}\")]", s));
+      NumberOrString::String(_) => {
         if i == 0 {
           g.writeln("#[default]");
         }
@@ -258,132 +256,171 @@ fn generate_enum(g: &mut Generator, ty: &Enumeration) {
 
   g.writeln(format_args!("}}"));
 
+  let (base, base_owned, is_copy) = match ty.ty {
+    Type::Base { name: BaseType::String } => ("str", "String", false),
+    Type::Base { name: BaseType::Integer } => ("i32", "i32", true),
+    Type::Base { name: BaseType::Uinteger } => ("u32", "u32", true),
+    _ => unreachable!(),
+  };
+
+  g.writeln(format_args!("impl {} {{", ty.name));
+  g.writeln(format_args!(
+    "pub fn as_{base}({r}self) -> {r}{base} {{",
+    r = if is_copy { "" } else { "&" }
+  ));
+  if is_copy && !ty.supports_custom_values {
+    g.writeln(format_args!("self as {base}"));
+  } else {
+    g.writeln("match self {");
+    for variant in &ty.values {
+      match &variant.value {
+        NumberOrString::Number(n) => {
+          g.writeln(format_args!("Self::{} => {n},", to_pascal_case(&variant.name)));
+        }
+        NumberOrString::String(s) => {
+          g.writeln(format_args!("Self::{} => \"{s}\",", to_pascal_case(&variant.name)));
+        }
+      }
+    }
+    if ty.supports_custom_values {
+      g.writeln("Self::Custom(value) => value,");
+    }
+    g.writeln("}");
+  }
+  g.writeln("}");
+  g.writeln("}");
+
+  if ty.supports_custom_values {
+    g.writeln(format_args!("impl From<{base_owned}> for {} {{", ty.name));
+    g.writeln(format_args!("fn from(value: {base_owned}) -> Self {{"));
+    g.writeln(format_args!("match value{} {{", if is_copy { "" } else { ".as_str()" }));
+    for variant in &ty.values {
+      match &variant.value {
+        NumberOrString::Number(n) => {
+          g.writeln(format_args!("{n} => Self::{},", to_pascal_case(&variant.name)));
+        }
+        NumberOrString::String(s) => {
+          g.writeln(format_args!("\"{s}\" => Self::{},", to_pascal_case(&variant.name)));
+        }
+      }
+    }
+    g.writeln("_ => Self::Custom(value)");
+    g.writeln("}");
+    g.writeln("}");
+    g.writeln("}");
+  } else {
+    let try_from = if is_copy { base } else { "&str" };
+
+    g.writeln(format_args!("impl TryFrom<{try_from}> for {} {{", ty.name));
+    g.writeln("type Error = ();");
+    g.writeln(format_args!("fn try_from(value: {try_from}) -> Result<Self, ()> {{"));
+    g.writeln("match value {");
+    for variant in &ty.values {
+      match &variant.value {
+        NumberOrString::Number(n) => {
+          g.writeln(format_args!("{n} => Ok(Self::{}),", to_pascal_case(&variant.name)));
+        }
+        NumberOrString::String(s) => {
+          g.writeln(format_args!("\"{s}\" => Ok(Self::{}),", to_pascal_case(&variant.name)));
+        }
+      }
+    }
+    g.writeln("_ => Err(())");
+    g.writeln("}");
+    g.writeln("}");
+    g.writeln("}");
+  }
+
+  g.writeln(format_args!("impl Serialize for {} {{", ty.name));
+  g.writeln("fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>");
+  g.writeln("  where S: ser::Serializer {");
+  g.writeln(format_args!("serializer.serialize_{base}(self.as_{base}())"));
+  g.writeln("}");
+  g.writeln("}");
+
+  g.writeln(format_args!("impl<'de> Deserialize<'de> for {} {{", ty.name));
+  g.writeln("fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>");
+  g.writeln("  where D: de::Deserializer<'de> {");
+  g.writeln("struct Visitor;");
+
+  g.writeln("impl<'de> de::Visitor<'de> for Visitor {");
+  g.writeln(format_args!("type Value = {};", ty.name));
+  g.writeln("fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {");
   match ty.ty {
-    Type::Base { name: BaseType::Uinteger | BaseType::Integer } => {
-      let signed = ty.ty == Type::Base { name: BaseType::Integer };
-      let num = if signed { "i32" } else { "u32" };
-
-      if ty.supports_custom_values {
-        g.writeln(format_args!("impl {} {{", ty.name));
-        g.writeln(format_args!("pub fn as_{num}(self) -> {num} {{",));
-        g.writeln("match self {");
-        for variant in &ty.values {
-          match variant.value {
-            NumberOrString::Number(n) => {
-              g.writeln(format_args!("Self::{} => {n},", to_pascal_case(&variant.name)));
-            }
-            _ => unreachable!(),
-          }
-        }
-        g.writeln("Self::Custom(value) => value,");
-        g.writeln("}");
-        g.writeln("}");
-        g.writeln("}");
-
-        g.writeln(format_args!("impl From<{num}> for {} {{", ty.name));
-        g.writeln(format_args!("fn from(value: {num}) -> Self {{"));
-        g.writeln("match value {");
-        for variant in &ty.values {
-          match variant.value {
-            NumberOrString::Number(n) => {
-              g.writeln(format_args!("{n} => Self::{},", to_pascal_case(&variant.name)));
-            }
-            _ => unreachable!(),
-          }
-        }
-        g.writeln("_ => Self::Custom(value)");
-        g.writeln("}");
-        g.writeln("}");
-        g.writeln("}");
-      } else {
-        g.writeln(format_args!("impl {} {{", ty.name));
-        g.writeln(format_args!("pub fn as_{num}(self) -> {num} {{",));
-        g.writeln(format_args!("self as {num}"));
-        g.writeln("}");
-        g.writeln("}");
-
-        g.writeln(format_args!("impl TryFrom<{num}> for {} {{", ty.name));
-        g.writeln("type Error = ();");
-        g.writeln(format_args!("fn try_from(value: {num}) -> Result<Self, ()> {{"));
-        g.writeln("match value {");
-        for variant in &ty.values {
-          match variant.value {
-            NumberOrString::Number(n) => {
-              g.writeln(format_args!("{n} => Ok(Self::{}),", to_pascal_case(&variant.name)));
-            }
-            _ => unreachable!(),
-          }
-        }
-        g.writeln("_ => Err(())");
-        g.writeln("}");
-        g.writeln("}");
-        g.writeln("}");
-      }
-
-      g.writeln(format_args!("impl Serialize for {} {{", ty.name));
-      g.writeln("fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>");
-      g.writeln("  where S: ser::Serializer {");
-      g.writeln(format_args!("serializer.serialize_{num}(self.as_{num}())"));
-      g.writeln("}");
-      g.writeln("}");
-
-      g.writeln(format_args!("impl<'de> Deserialize<'de> for {} {{", ty.name));
-      g.writeln("fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>");
-      g.writeln("  where D: de::Deserializer<'de> {");
-      g.writeln("struct Visitor;");
-
-      g.writeln("impl<'de> de::Visitor<'de> for Visitor {");
-      g.writeln(format_args!("type Value = {};", ty.name));
-      g.writeln("fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {");
-      if signed {
-        g.writeln("formatter.write_str(\"integer\")");
-      } else {
-        g.writeln("formatter.write_str(\"unsigned integer\")");
-      }
-      g.writeln("}");
-      g.writeln(format_args!("fn visit_u64<E>(self, value: u64) -> Result<{}, E>", ty.name));
+    Type::Base { name: BaseType::String } => g.writeln("formatter.write_str(\"string\")"),
+    Type::Base { name: BaseType::Integer } => g.writeln("formatter.write_str(\"integer\")"),
+    Type::Base { name: BaseType::Uinteger } => {
+      g.writeln("formatter.write_str(\"unsigned integer\")")
+    }
+    _ => unreachable!(),
+  }
+  g.writeln("}");
+  if is_copy {
+    g.writeln(format_args!("fn visit_u64<E>(self, value: u64) -> Result<{}, E>", ty.name));
+    g.writeln("  where E: de::Error {");
+    if ty.supports_custom_values {
+      g.writeln(format_args!("if let Ok(n) = {base}::try_from(value) {{"));
+      g.writeln(format_args!("Ok({}::from(n))", ty.name));
+    } else {
+      g.writeln(format_args!("if let Ok(n) = {base}::try_from(value)"));
+      g.writeln(format_args!("  && let Ok(v) = {}::try_from(n) {{", ty.name));
+      g.writeln(format_args!("Ok(v)"));
+    }
+    g.writeln(format_args!("}} else {{"));
+    g.writeln(format_args!(
+      "Err(de::Error::invalid_value(de::Unexpected::Unsigned(value), &self))"
+    ));
+    g.writeln(format_args!("}}"));
+    g.writeln(format_args!("}}"));
+    g.writeln(format_args!("fn visit_i64<E>(self, value: i64) -> Result<{}, E>", ty.name));
+    g.writeln("  where E: de::Error {");
+    if ty.supports_custom_values {
+      g.writeln(format_args!("if let Ok(n) = {base}::try_from(value) {{"));
+      g.writeln(format_args!("Ok({}::from(n))", ty.name));
+    } else {
+      g.writeln(format_args!("if let Ok(n) = {base}::try_from(value)"));
+      g.writeln(format_args!("  && let Ok(v) = {}::try_from(n) {{", ty.name));
+      g.writeln(format_args!("Ok(v)"));
+    }
+    g.writeln(format_args!("}} else {{"));
+    g.writeln(format_args!("Err(de::Error::invalid_value(de::Unexpected::Signed(value), &self))"));
+    g.writeln(format_args!("}}"));
+    g.writeln(format_args!("}}"));
+  } else {
+    if ty.supports_custom_values {
+      g.writeln(format_args!("fn visit_string<E>(self, value: String) -> Result<{}, E>", ty.name));
       g.writeln("  where E: de::Error {");
-      if ty.supports_custom_values {
-        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value) {{"));
-        g.writeln(format_args!("Ok({}::from(n))", ty.name));
-      } else {
-        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value)"));
-        g.writeln(format_args!("  && let Ok(v) = {}::try_from(n) {{", ty.name));
-        g.writeln(format_args!("Ok(v)"));
-      }
-      g.writeln(format_args!("}} else {{"));
-      g.writeln(format_args!(
-        "Err(de::Error::invalid_value(de::Unexpected::Unsigned(value), &self))"
-      ));
-      g.writeln(format_args!("}}"));
-      g.writeln(format_args!("}}"));
-      g.writeln(format_args!("fn visit_i64<E>(self, value: i64) -> Result<{}, E>", ty.name));
+      g.writeln(format_args!("Ok({}::from(value))", ty.name));
+      g.writeln("}");
+      g.writeln(format_args!("fn visit_str<E>(self, value: &str) -> Result<{}, E>", ty.name));
       g.writeln("  where E: de::Error {");
-      if ty.supports_custom_values {
-        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value) {{"));
-        g.writeln(format_args!("Ok({}::from(n))", ty.name));
-      } else {
-        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value)"));
-        g.writeln(format_args!("  && let Ok(v) = {}::try_from(n) {{", ty.name));
-        g.writeln(format_args!("Ok(v)"));
-      }
+      g.writeln(format_args!("Ok({}::from(String::from(value)))", ty.name));
+      g.writeln("}");
+    } else {
+      g.writeln(format_args!("fn visit_str<E>(self, value: &str) -> Result<{}, E>", ty.name));
+      g.writeln("  where E: de::Error {");
+      g.writeln(format_args!("if let Ok(v) = {}::try_from(value) {{", ty.name));
+      g.writeln(format_args!("Ok(v)"));
       g.writeln(format_args!("}} else {{"));
-      g.writeln(format_args!(
-        "Err(de::Error::invalid_value(de::Unexpected::Signed(value), &self))"
-      ));
+      g.writeln(format_args!("Err(de::Error::invalid_value(de::Unexpected::Str(value), &self))"));
       g.writeln(format_args!("}}"));
-      g.writeln(format_args!("}}"));
-      g.writeln("}");
-
-      g.writeln(format_args!("let n = deserializer.deserialize_{num}(Visitor)?;",));
-      g.writeln("Ok(Self::from(n))");
-
-      g.writeln("}");
       g.writeln("}");
     }
-
-    _ => {}
   }
+  g.writeln("}");
+
+  if ty.supports_custom_values {
+    g.writeln(format_args!(
+      "let n = deserializer.deserialize_{}(Visitor)?;",
+      to_snake_case(base_owned)
+    ));
+  } else {
+    g.writeln(format_args!("let n = deserializer.deserialize_{base}(Visitor)?;",));
+  }
+  g.writeln("Ok(Self::from(n))");
+
+  g.writeln("}");
+  g.writeln("}");
 }
 
 fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
