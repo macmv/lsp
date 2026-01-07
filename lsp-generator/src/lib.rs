@@ -12,7 +12,8 @@ pub fn generate() {
   generate_notifications(&mut Generator::new("src/notification.rs"), &spec.notifications);
 
   let mut g = Generator::new("src/lib.rs");
-  g.writeln("use serde::{Serialize, Deserialize};");
+  g.writeln("use serde::{Deserialize, Serialize, de, ser};");
+  g.writeln("use std::fmt;");
   g.writeln("");
   g.writeln("pub mod request;");
   g.writeln("pub mod notification;");
@@ -27,6 +28,10 @@ pub fn generate() {
 
   for ty in &spec.structures {
     generate_struct(&mut g, ty);
+  }
+
+  for ty in &spec.enumerations {
+    generate_enum(&mut g, ty);
   }
 
   while g.has_types() {
@@ -74,6 +79,180 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
     g.writeln(",");
   }
   g.writeln(format_args!("}}"));
+}
+
+fn generate_enum(g: &mut Generator, ty: &Enumeration) {
+  g.writeln("");
+  g.write_doc(&ty.documentation);
+  match ty.ty {
+    Type::Base { name: BaseType::String } => {
+      g.writeln("#[derive(Serialize, Deserialize)]");
+      g.writeln("#[serde(untagged)]");
+    }
+    Type::Base { name: BaseType::Integer | BaseType::Uinteger } => {
+      g.writeln("#[derive(Clone, Copy)]");
+    }
+
+    _ => panic!("invalid enum type: {:#?}", ty.ty),
+  }
+
+  g.writeln(format_args!("pub enum {} {{", ty.name));
+  for variant in ty.values.iter() {
+    g.write_doc(&variant.documentation);
+
+    match &variant.value {
+      NumberOrString::Number(n) => {
+        if ty.supports_custom_values {
+          g.writeln(format_args!("{},", to_pascal_case(&variant.name)));
+        } else {
+          g.writeln(format_args!("{} = {},", to_pascal_case(&variant.name), n));
+        }
+      }
+      NumberOrString::String(s) => {
+        g.writeln(format_args!("#[serde(rename = \"{}\")]", s));
+        g.writeln(format_args!("{},", to_pascal_case(&variant.name)));
+      }
+    }
+  }
+
+  if ty.supports_custom_values {
+    match ty.ty {
+      Type::Base { name: BaseType::String } => g.writeln("Custom(String),"),
+      Type::Base { name: BaseType::Integer } => g.writeln("Custom(i32),"),
+      Type::Base { name: BaseType::Uinteger } => g.writeln("Custom(u32),"),
+
+      _ => unreachable!(),
+    }
+  }
+
+  g.writeln(format_args!("}}"));
+
+  match ty.ty {
+    Type::Base { name: BaseType::Uinteger | BaseType::Integer } => {
+      let signed = ty.ty == Type::Base { name: BaseType::Integer };
+      let num = if signed { "i32" } else { "u32" };
+
+      if ty.supports_custom_values {
+        g.writeln(format_args!("impl {} {{", ty.name));
+        g.writeln(format_args!("pub fn as_{num}(self) -> {num} {{",));
+        g.writeln("match self {");
+        for variant in &ty.values {
+          match variant.value {
+            NumberOrString::Number(n) => {
+              g.writeln(format_args!("Self::{} => {n},", to_pascal_case(&variant.name)));
+            }
+            _ => unreachable!(),
+          }
+        }
+        g.writeln("Self::Custom(value) => value,");
+        g.writeln("}");
+        g.writeln("}");
+        g.writeln("}");
+
+        g.writeln(format_args!("impl From<{num}> for {} {{", ty.name));
+        g.writeln(format_args!("fn from(value: {num}) -> Self {{"));
+        g.writeln("match value {");
+        for variant in &ty.values {
+          match variant.value {
+            NumberOrString::Number(n) => {
+              g.writeln(format_args!("{n} => Self::{},", to_pascal_case(&variant.name)));
+            }
+            _ => unreachable!(),
+          }
+        }
+        g.writeln("_ => Self::Custom(value)");
+        g.writeln("}");
+        g.writeln("}");
+        g.writeln("}");
+      } else {
+        g.writeln(format_args!("impl {} {{", ty.name));
+        g.writeln(format_args!("pub fn as_{num}(self) -> {num} {{",));
+        g.writeln(format_args!("self as {num}"));
+        g.writeln("}");
+        g.writeln("}");
+
+        g.writeln(format_args!("impl TryFrom<{num}> for {} {{", ty.name));
+        g.writeln("type Error = ();");
+        g.writeln(format_args!("fn try_from(value: {num}) -> Result<Self, ()> {{"));
+        g.writeln("match value {");
+        for variant in &ty.values {
+          match variant.value {
+            NumberOrString::Number(n) => {
+              g.writeln(format_args!("{n} => Ok(Self::{}),", to_pascal_case(&variant.name)));
+            }
+            _ => unreachable!(),
+          }
+        }
+        g.writeln("_ => Err(())");
+        g.writeln("}");
+        g.writeln("}");
+        g.writeln("}");
+      }
+
+      g.writeln(format_args!("impl Serialize for {} {{", ty.name));
+      g.writeln("fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>");
+      g.writeln("  where S: ser::Serializer {");
+      g.writeln(format_args!("serializer.serialize_{num}(self.as_{num}())"));
+      g.writeln("}");
+      g.writeln("}");
+
+      g.writeln(format_args!("impl<'de> Deserialize<'de> for {} {{", ty.name));
+      g.writeln("fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>");
+      g.writeln("  where D: de::Deserializer<'de> {");
+      g.writeln("struct Visitor;");
+
+      g.writeln("impl<'de> de::Visitor<'de> for Visitor {");
+      g.writeln(format_args!("type Value = {};", ty.name));
+      g.writeln("fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {");
+      if signed {
+        g.writeln("formatter.write_str(\"integer\")");
+      } else {
+        g.writeln("formatter.write_str(\"unsigned integer\")");
+      }
+      g.writeln("}");
+      g.writeln(format_args!("fn visit_u64<E>(self, value: u64) -> Result<{}, E>", ty.name));
+      g.writeln("  where E: de::Error {");
+      if ty.supports_custom_values {
+        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value) {{"));
+        g.writeln(format_args!("Ok({}::from(n))", ty.name));
+      } else {
+        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value)"));
+        g.writeln(format_args!("  && let Ok(v) = {}::try_from(n) {{", ty.name));
+        g.writeln(format_args!("Ok(v)"));
+      }
+      g.writeln(format_args!("}} else {{"));
+      g.writeln(format_args!(
+        "Err(de::Error::invalid_value(de::Unexpected::Unsigned(value), &self))"
+      ));
+      g.writeln(format_args!("}}"));
+      g.writeln(format_args!("}}"));
+      g.writeln(format_args!("fn visit_i64<E>(self, value: i64) -> Result<{}, E>", ty.name));
+      g.writeln("  where E: de::Error {");
+      if ty.supports_custom_values {
+        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value) {{"));
+        g.writeln(format_args!("Ok({}::from(n))", ty.name));
+      } else {
+        g.writeln(format_args!("if let Ok(n) = {num}::try_from(value)"));
+        g.writeln(format_args!("  && let Ok(v) = {}::try_from(n) {{", ty.name));
+        g.writeln(format_args!("Ok(v)"));
+      }
+      g.writeln(format_args!("}} else {{"));
+      g.writeln(format_args!(
+        "Err(de::Error::invalid_value(de::Unexpected::Signed(value), &self))"
+      ));
+      g.writeln(format_args!("}}"));
+      g.writeln(format_args!("}}"));
+      g.writeln("}");
+
+      g.writeln(format_args!("let n = deserializer.deserialize_{num}(Visitor)?;",));
+      g.writeln("Ok(Self::from(n))");
+
+      g.writeln("}");
+      g.writeln("}");
+    }
+
+    _ => {}
+  }
 }
 
 fn generate_requests(g: &mut Generator, requests: &[Request]) {
@@ -246,6 +425,8 @@ fn to_snake_case(name: &str) -> String {
 
   snake_case
 }
+
+fn to_pascal_case(name: &str) -> String { name[0..1].to_ascii_uppercase() + &name[1..] }
 
 fn notification_name(method: &str) -> String {
   let mut name = String::new();

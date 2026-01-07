@@ -78,8 +78,12 @@ pub struct Enumeration {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnumValue {
-  pub name:  String,
-  pub value: NumberOrString,
+  pub name:          String,
+  pub value:         NumberOrString,
+  #[serde(default)]
+  pub documentation: String,
+  #[serde(default)]
+  pub since:         Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
