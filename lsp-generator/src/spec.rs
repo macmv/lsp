@@ -118,6 +118,8 @@ pub enum MessageDirection {
 pub struct Property {
   pub name:          String,
   #[serde(default)]
+  pub optional:      bool,
+  #[serde(default)]
   pub documentation: String,
   #[serde(rename = "type")]
   pub ty:            Type,

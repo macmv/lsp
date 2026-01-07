@@ -34,6 +34,10 @@ pub fn generate() {
     generate_enum(&mut g, ty);
   }
 
+  for ty in &spec.type_aliases {
+    generate_type_alias(&mut g, ty);
+  }
+
   while g.has_types() {
     let types = g.drain_types();
 
@@ -75,7 +79,23 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
       }
       g.write(format_args!("pub {}: ", to_snake_case(&field.name)));
     }
-    write_type(g, &field.ty);
+
+    if field.optional {
+      let mut ty = field.ty.clone();
+      match &mut ty {
+        Type::Or { items } => {
+          if !items.contains(&Type::Base { name: BaseType::Null }) {
+            items.push(Type::Base { name: BaseType::Null });
+          }
+        }
+        _ => ty = Type::Or { items: vec![ty, Type::Base { name: BaseType::Null }] },
+      }
+
+      write_type(g, &ty);
+    } else {
+      write_type(g, &field.ty);
+    }
+
     g.writeln(",");
   }
   g.writeln(format_args!("}}"));
@@ -252,6 +272,58 @@ fn generate_enum(g: &mut Generator, ty: &Enumeration) {
     }
 
     _ => {}
+  }
+}
+
+fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
+  g.writeln("");
+  g.write_doc(&ty.documentation);
+  match &ty.ty {
+    Type::Or { items } => {
+      let mut items = items.clone();
+      // TextDocumentFilter and NotebookDocumentFilter have utter nonsense schema.
+      items.dedup();
+
+      if items.len() == 1 {
+        g.writeln(format_args!("pub type {} = ", ty.name));
+        write_type(g, &items[0]);
+        g.writeln(";");
+      } else {
+        g.writeln("#[derive(Serialize, Deserialize)]");
+        g.writeln("#[serde(untagged)]");
+        g.writeln(format_args!("pub enum {} {{", ty.name));
+        for it in items {
+          g.write(format_args!("{}(", variant_name(&it)));
+          write_type(g, &it);
+          g.writeln("),");
+        }
+        g.writeln("}");
+      }
+    }
+
+    _ => {
+      g.writeln(format_args!("pub type {} = ", ty.name));
+      write_type(g, &ty.ty);
+      g.writeln(";");
+    }
+  }
+}
+
+fn variant_name(ty: &Type) -> String {
+  match ty {
+    Type::Base { name: BaseType::Null } => "Null".into(),
+    Type::Base { name: BaseType::String } => "String".into(),
+    Type::Base { name: BaseType::Integer } => "Integer".into(),
+    Type::Base { name: BaseType::Uinteger } => "Uinteger".into(),
+    Type::Base { name: BaseType::Boolean } => "Boolean".into(),
+    Type::Base { name: BaseType::Decimal } => "Decimal".into(),
+    Type::Base { name: BaseType::DocumentUri } => "DocumentUri".into(),
+    Type::Base { name: BaseType::Uri } => "Uri".into(),
+
+    Type::Reference { name } => name.clone(),
+    Type::Array { .. } => "Many".into(),
+
+    _ => "T".to_string(),
   }
 }
 
