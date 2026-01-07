@@ -21,9 +21,26 @@ pub fn generate() {
   g.writeln("");
   g.writeln("#[derive(Serialize, Deserialize)]");
   g.writeln("#[serde(untagged)]");
-  g.writeln("pub enum Or<A, B> {");
+  g.writeln("pub enum Or2<A, B> {");
   g.writeln("A(A),");
   g.writeln("B(B),");
+  g.writeln("}");
+  g.writeln("");
+  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln("#[serde(untagged)]");
+  g.writeln("pub enum Or3<A, B, C> {");
+  g.writeln("A(A),");
+  g.writeln("B(B),");
+  g.writeln("C(C),");
+  g.writeln("}");
+  g.writeln("");
+  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln("#[serde(untagged)]");
+  g.writeln("pub enum Or4<A, B, C, D> {");
+  g.writeln("A(A),");
+  g.writeln("B(B),");
+  g.writeln("C(C),");
+  g.writeln("D(D),");
   g.writeln("}");
 
   for ty in &spec.structures {
@@ -426,24 +443,31 @@ fn write_type(g: &mut Generator, ty: &Type) {
         );
         g.write(">");
       } else if items.len() == 2 {
-        g.write("Or<");
-        for (i, item) in items.iter().enumerate() {
-          if i != 0 {
-            g.write(", ");
-          }
-          write_type(g, item);
-        }
+        g.write("Or2<");
+        write_type(g, &items[0]);
+        g.write(", ");
+        write_type(g, &items[1]);
+        g.write(">");
+      } else if items.len() == 3 {
+        g.write("Or3<");
+        write_type(g, &items[0]);
+        g.write(", ");
+        write_type(g, &items[1]);
+        g.write(", ");
+        write_type(g, &items[2]);
+        g.write(">");
+      } else if items.len() == 4 {
+        g.write("Or4<");
+        write_type(g, &items[0]);
+        g.write(", ");
+        write_type(g, &items[1]);
+        g.write(", ");
+        write_type(g, &items[2]);
+        g.write(", ");
+        write_type(g, &items[3]);
         g.write(">");
       } else {
-        g.write("/* TODO */");
-        g.write("Or<");
-        for (i, item) in items.iter().enumerate() {
-          if i != 0 {
-            g.write(", ");
-          }
-          write_type(g, item);
-        }
-        g.write(">");
+        panic!("union of length {}", items.len());
       }
     }
 
