@@ -13,7 +13,7 @@ pub fn generate() {
 
   let mut g = Generator::new("src/lib.rs");
   g.writeln("use serde::{Deserialize, Serialize, de, ser};");
-  g.writeln("use std::fmt;");
+  g.writeln("use std::{collections::HashMap, fmt};");
   g.writeln("");
   g.writeln("pub mod request;");
   g.writeln("pub mod notification;");
