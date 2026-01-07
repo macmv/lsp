@@ -19,6 +19,8 @@ pub fn main() {
   let mut g = Generator::new("src/types.rs", &names);
   g.writeln("use serde::{Deserialize, Serialize, de, ser};");
   g.writeln("use std::{collections::HashMap, fmt};");
+  g.writeln("");
+  g.writeln("use crate::*;");
 
   let structs =
     spec.structures.iter().map(|ty| (ty.name.as_str(), ty)).collect::<HashMap<&str, &Structure>>();
@@ -463,7 +465,7 @@ fn variant_name(ty: &Type) -> String {
 fn generate_requests(g: &mut Generator, requests: &[Request]) {
   g.writeln("//! LSP Requests.");
   g.writeln("");
-  g.writeln("use super::*;");
+  g.writeln("use crate::*;");
   g.writeln("");
 
   g.writeln("pub trait Request {");
@@ -500,7 +502,7 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
 fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
   g.writeln("//! LSP Notifications.");
   g.writeln("");
-  g.writeln("use super::*;");
+  g.writeln("use crate::*;");
   g.writeln("");
 
   g.writeln("pub trait Notification {");
