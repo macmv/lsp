@@ -468,8 +468,8 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
 
   g.writeln("pub trait Request {");
   g.writeln("const METHOD: &'static str;");
-  g.writeln("type Params;");
-  g.writeln("type Result;");
+  g.writeln("type Params: Send + serde::Serialize + serde::de::DeserializeOwned;");
+  g.writeln("type Result: Send + serde::Serialize + serde::de::DeserializeOwned;");
   g.writeln("}");
   g.writeln("");
 
@@ -505,7 +505,7 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
 
   g.writeln("pub trait Notification {");
   g.writeln("const METHOD: &'static str;");
-  g.writeln("type Params;");
+  g.writeln("type Params: Send + serde::Serialize + serde::de::DeserializeOwned;");
   g.writeln("}");
   g.writeln("");
 
