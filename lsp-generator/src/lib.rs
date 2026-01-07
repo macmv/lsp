@@ -18,6 +18,7 @@ pub fn generate() {
 
   let mut g = Generator::new("src/lib.rs", &names);
   g.writeln("#![allow(rustdoc::redundant_explicit_links)]"); // explicit links are simpler
+  g.writeln("#![allow(deprecated)]"); // we need to use the deprecated types
   g.writeln("");
   g.writeln("use serde::{Deserialize, Serialize, de, ser};");
   g.writeln("use std::{collections::HashMap, fmt};");
