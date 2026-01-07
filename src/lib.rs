@@ -63,19 +63,30 @@ impl<A: Default, B, C, D> Default for Or4<A, B, C, D> {
 
 #[cfg(test)]
 mod tests {
+  use serde::de::DeserializeOwned;
+
   use super::*;
 
+  macro_rules! assert_serde {
+    ($value:expr, $expected:literal as $ty:ty) => {
+      assert_eq!(ser($value), $expected);
+      // This is dumb but it works.
+      assert_eq!(format!("{:?}", de::<$ty>($expected)), format!("{:?}", $value));
+    };
+  }
+
   fn ser<T: Serialize>(t: &T) -> String { serde_json::to_string(t).unwrap() }
+  fn de<T: DeserializeOwned>(t: &str) -> T { serde_json::from_str(t).unwrap() }
 
   #[test]
   fn string_enums_work() {
-    assert_eq!(
-      ser(&[
+    assert_serde!(
+      &[
         PositionEncodingKind::Utf8,
         PositionEncodingKind::Utf16,
         PositionEncodingKind::Custom("foo".into())
-      ]),
-      r#"["utf-8","utf-16","foo"]"#
+      ],
+      r#"["utf-8","utf-16","foo"]"# as Vec<PositionEncodingKind>
     );
   }
 }
