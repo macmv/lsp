@@ -477,7 +477,11 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
 
   for n in requests {
     g.write_doc(&n.documentation);
-    let name = rpc_name(&n.method);
+    let mut name = rpc_name(&n.method);
+    // Avoid conflicts with the `WorkspaceSymbol` type.
+    if name == "WorkspaceSymbol" {
+      name = "WorkspaceSymbolRequest".into();
+    }
     g.writeln(format_args!("pub enum {name} {{}}"));
 
     g.writeln(format_args!("impl Request for {name} {{"));
