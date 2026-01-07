@@ -49,7 +49,7 @@ pub fn main() {
     for (name, ty) in types {
       write_derives(&mut g);
       g.writeln(format_args!("pub struct {} {{", name));
-      generate_anon_struct_fields(&mut g, &ty, true, &name);
+      generate_struct_fields(&mut g, &ty.properties, None, &name, &structs, &[], &[]);
       g.writeln("}");
     }
   }
