@@ -115,6 +115,14 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
 
     g.writeln(",");
   }
+
+  for mixin in &ty.mixins {
+    g.writeln("#[serde(flatten)]");
+    g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(mixin))));
+    write_type(g, &mixin);
+    g.writeln(",");
+  }
+
   g.writeln(format_args!("}}"));
 }
 
