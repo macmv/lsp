@@ -24,6 +24,8 @@ pub struct Generator<'a> {
 const LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\}").unwrap());
 const LINK_NAMED_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\s([^}]+)\}").unwrap());
+const SAMPLE_REGEX: LazyLock<Regex> =
+  LazyLock::new(|| Regex::new(r"\n@sample ([^`]+)`([^`]+)`").unwrap());
 
 impl<'a> Generator<'a> {
   pub fn new(path: impl AsRef<Path>, names: &'a Names) -> Self {
@@ -66,6 +68,13 @@ impl<'a> Generator<'a> {
       }
 
       format!("[`{text}`]({ty})")
+    });
+    let doc = SAMPLE_REGEX.replace_all(&doc, |caps: &regex::Captures| {
+      format!(
+        "\n# Sample\n\n{}\n\n```ts\n{}\n```\n",
+        caps.get(1).unwrap().as_str(),
+        caps.get(2).unwrap().as_str()
+      )
     });
 
     for line in doc.lines() {
