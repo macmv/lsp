@@ -47,14 +47,16 @@ pub struct Notification {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Structure {
-  pub name:       String,
-  pub properties: Vec<Property>,
+  pub name:          String,
+  pub properties:    Vec<Property>,
   #[serde(default)]
-  pub extends:    Vec<Type>,
+  pub extends:       Vec<Type>,
   #[serde(default)]
-  pub mixins:     Vec<Type>,
+  pub mixins:        Vec<Type>,
   #[serde(default)]
-  pub since:      Option<String>,
+  pub documentation: String,
+  #[serde(default)]
+  pub since:         Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

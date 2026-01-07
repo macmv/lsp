@@ -24,6 +24,24 @@ pub fn generate() {
   g.writeln("A(A),");
   g.writeln("B(B),");
   g.writeln("}");
+
+  for ty in &spec.structures {
+    generate_struct(&mut g, ty);
+  }
+}
+
+fn generate_struct(g: &mut Generator, ty: &Structure) {
+  g.writeln("");
+  g.write_doc(&ty.documentation);
+  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln(format_args!("pub struct {} {{", ty.name));
+  for field in ty.properties.iter() {
+    g.write_doc(&field.documentation);
+    g.write(format_args!("pub {}: ", field.name));
+    write_type(g, &field.ty);
+    g.writeln(",");
+  }
+  g.writeln(format_args!("}}"));
 }
 
 fn generate_requests(g: &mut Generator, requests: &[Request]) {
@@ -120,7 +138,15 @@ fn write_type(g: &mut Generator, ty: &Type) {
         }
         g.write(">");
       } else {
-        panic!("unhandled or {items:?}");
+        g.write("/* TODO */");
+        g.write("Or<");
+        for (i, item) in items.iter().enumerate() {
+          if i != 0 {
+            g.write(", ");
+          }
+          write_type(g, item);
+        }
+        g.write(">");
       }
     }
 
@@ -130,8 +156,38 @@ fn write_type(g: &mut Generator, ty: &Type) {
       g.write(">");
     }
 
-    _ => {
-      todo!("write type {ty:?}");
+    Type::Tuple { items } => {
+      g.write("(");
+      for (i, item) in items.iter().enumerate() {
+        if i != 0 {
+          g.write(", ");
+        }
+        write_type(g, item);
+      }
+      g.write(")");
+    }
+
+    Type::Map { key, value } => {
+      g.write("HashMap<");
+      write_type(g, key);
+      g.write(", ");
+      write_type(g, value);
+      g.write(">");
+    }
+
+    Type::StringLiteral { value } => {
+      g.write(format_args!("String /* \"{}\" */", value));
+    }
+
+    Type::Literal { value } => {
+      g.writeln("{");
+      for prop in &value.properties {
+        g.write_doc(&prop.documentation);
+        g.write(format_args!("pub {}: ", prop.name));
+        write_type(g, &prop.ty);
+        g.writeln(",");
+      }
+      g.writeln("}");
     }
   }
 }
