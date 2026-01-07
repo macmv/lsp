@@ -546,6 +546,14 @@ fn write_type(g: &mut Generator, ty: &Type, name_hint: Option<String>) {
     Type::Reference { name } => g.write(name),
 
     Type::Or { items } => {
+      let mut items = items.clone();
+      items.dedup_by(|a, b| match (a, b) {
+        (Type::Literal { value: a }, Type::Literal { value: b }) => {
+          a.properties.iter().map(|p| &p.name).eq(b.properties.iter().map(|p| &p.name))
+        }
+        _ => false,
+      });
+
       if items.len() == 1 {
         write_type(g, &items[0], name_hint);
       } else if items.iter().any(|item| item.is_null()) {
