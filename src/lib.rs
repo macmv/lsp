@@ -60,3 +60,22 @@ impl<A: Default, B, C> Default for Or3<A, B, C> {
 impl<A: Default, B, C, D> Default for Or4<A, B, C, D> {
   fn default() -> Self { Or4::A(A::default()) }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn ser<T: Serialize>(t: &T) -> String { serde_json::to_string(t).unwrap() }
+
+  #[test]
+  fn string_enums_work() {
+    assert_eq!(
+      ser(&[
+        PositionEncodingKind::Utf8,
+        PositionEncodingKind::Utf16,
+        PositionEncodingKind::Custom("foo".into())
+      ]),
+      r#"["utf-8","utf-16","foo"]"#
+    );
+  }
+}
