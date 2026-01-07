@@ -163,3 +163,10 @@ pub enum BaseType {
   #[serde(rename = "URI")]
   Uri,
 }
+
+impl Type {
+  pub fn is_null(&self) -> bool {
+    matches!(self, Type::Base { name: BaseType::Null })
+      || matches!(self, Type::Literal { value: Literal { properties } } if properties.is_empty())
+  }
+}

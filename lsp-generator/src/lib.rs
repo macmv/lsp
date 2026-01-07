@@ -139,17 +139,19 @@ fn generate_struct_fields(
     }
 
     if field.optional {
-      let needs_box = matches!(&field.ty, Type::Reference { name } if *name == ty.name);
-
-      if needs_box {
+      if matches!(&field.ty, Type::Reference { name } if *name == ty.name) {
         g.write("Option<Box<");
+        write_type(g, &field.ty);
+        g.write(">>");
+      } else if let Type::Or { items } = &field.ty {
+        let mut items = items.clone();
+        if !items.iter().any(|item| item.is_null()) {
+          items.push(Type::Base { name: BaseType::Null });
+        }
+        write_type(g, &Type::Or { items });
       } else {
         g.write("Option<");
-      }
-      write_type(g, &field.ty);
-      if needs_box {
-        g.write(">>");
-      } else {
+        write_type(g, &field.ty);
         g.write(">");
       }
     } else {
@@ -505,17 +507,11 @@ fn write_type(g: &mut Generator, ty: &Type) {
     Type::Or { items } => {
       if items.len() == 1 {
         write_type(g, &items[0]);
-      } else if items.iter().any(|item| item == &Type::Base { name: BaseType::Null }) {
+      } else if items.iter().any(|item| item.is_null()) {
         g.write("Option<");
         write_type(
           g,
-          &Type::Or {
-            items: items
-              .iter()
-              .filter(|item| *item != &Type::Base { name: BaseType::Null })
-              .cloned()
-              .collect(),
-          },
+          &Type::Or { items: items.iter().filter(|item| !item.is_null()).cloned().collect() },
         );
         g.write(">");
       } else if items.len() == 2 {
