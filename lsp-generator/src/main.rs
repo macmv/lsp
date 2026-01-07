@@ -108,6 +108,8 @@ fn generate_struct_fields(
       name_hints.push("PublishDiagnosticsTagSupportCapabilities".to_string());
     } else if struct_name == "WorkspaceSymbolClientCapabilities" && field.name == "tagSupport" {
       name_hints.push("WorkspaceSymbolTagSupportCapabilities".to_string());
+    } else if struct_name == "AnonCompletionItemCapabilities" && field.name == "tagSupport" {
+      name_hints.push("AnonCompletionItemTagSupportCapabilities".to_string());
     } else if struct_name == "InlayHintClientCapabilities" && field.name == "resolveSupport" {
       name_hints.push("InlayHintResolveSupportCapabilities".to_string());
     } else if struct_name == "CodeActionClientCapabilities" && field.name == "resolveSupport" {
@@ -116,6 +118,8 @@ fn generate_struct_fields(
       name_hints.push("WorkspaceSymbolResolveSupportCapabilities".to_string());
     } else if struct_name.ends_with("Capabilities") {
       name_hints.push(format!("{}Capabilities", to_pascal_case(&field.name)));
+    } else {
+      name_hints.push(format!("{}{}", struct_name, to_pascal_case(&field.name)));
     }
 
     name_hints.push(to_pascal_case(&field.name));
