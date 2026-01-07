@@ -90,20 +90,7 @@ pub fn generate() {
     for (name, ty) in types {
       g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
       g.writeln(format_args!("pub struct {} {{", name));
-      for prop in &ty.properties {
-        g.write_doc(&prop.documentation);
-        if prop.name == "type" {
-          g.write("#[serde(rename = \"type\")]");
-          g.write("ty: ");
-        } else {
-          if to_snake_case(&prop.name) != prop.name {
-            g.write(format_args!("#[serde(rename = \"{}\")]", prop.name));
-          }
-          g.write(format_args!("pub {}: ", to_snake_case(&prop.name)));
-        }
-        write_type(&mut g, &prop.ty);
-        g.writeln(",");
-      }
+      generate_anon_struct_fields(&mut g, &ty, true);
       g.writeln("}");
     }
   }
@@ -188,6 +175,26 @@ fn generate_struct_fields(
     g.writeln("#[serde(flatten)]");
     g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
     write_type(g, &extends);
+    g.writeln(",");
+  }
+}
+
+fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool) {
+  for prop in &lit.properties {
+    g.write_doc(&prop.documentation);
+    if prop.name == "type" {
+      g.write("#[serde(rename = \"type\")]");
+      g.write("ty: ");
+    } else {
+      if to_snake_case(&prop.name) != prop.name {
+        g.write(format_args!("#[serde(rename = \"{}\")]", prop.name));
+      }
+      if public {
+        g.write("pub ");
+      }
+      g.write(format_args!("{}: ", to_snake_case(&prop.name)));
+    }
+    write_type(g, &prop.ty);
     g.writeln(",");
   }
 }
@@ -395,18 +402,34 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
         g.writeln("#[serde(untagged)]");
         g.writeln(format_args!("pub enum {} {{", ty.name));
         for it in &items {
-          g.write(format_args!("{}(", variant_name(&it)));
-          write_type(g, it);
-          g.writeln("),");
+          g.write(format_args!("{}", variant_name(&it)));
+
+          match it {
+            Type::Literal { value } => {
+              g.writeln("{");
+              generate_anon_struct_fields(g, value, false);
+              g.writeln("},");
+            }
+            _ => {
+              g.write("(");
+              write_type(g, it);
+              g.writeln("),");
+            }
+          }
         }
         g.writeln("}");
 
-        g.writeln("");
-        g.writeln(format_args!("impl Default for {} {{", ty.name));
-        g.writeln("fn default() -> Self {");
-        g.writeln(format_args!("{}::{}(Default::default())", ty.name, variant_name(&items[0])));
-        g.writeln("}");
-        g.writeln("}");
+        // This struct in particular has only anonymous struct variants, so generating a
+        // default impl is annoying.
+        if ty.name != "TextDocumentContentChangeEvent" {
+          g.writeln("");
+          g.writeln(format_args!("impl Default for {} {{", ty.name));
+          g.writeln("fn default() -> Self {");
+          g.writeln(format_args!("{}::{}(Default::default())", ty.name, variant_name(&items[0])));
+          g.writeln("}");
+          g.writeln("}");
+        }
+
         g.writeln("");
       }
     }
