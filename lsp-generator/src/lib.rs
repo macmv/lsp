@@ -131,24 +131,46 @@ fn generate_struct_fields(
       g.write(format_args!("pub {}: ", to_snake_case(&field.name)));
     }
 
+    let mut name_hints = vec![];
+
+    // These two are functionally identical from all reasonable perspectives, except
+    // for the inner array type of the one field they share. So we hardcode it.
+    if ty.name == "DocumentSymbolClientCapabilities" && field.name == "tagSupport" {
+      name_hints.push("DocumentSymbolTagSupportCapabilities".to_string());
+    } else if ty.name == "PublishDiagnosticsClientCapabilities" && field.name == "tagSupport" {
+      name_hints.push("PublishDiagnosticsTagSupportCapabilities".to_string());
+    } else if ty.name == "WorkspaceSymbolClientCapabilities" && field.name == "tagSupport" {
+      name_hints.push("WorkspaceSymbolTagSupportCapabilities".to_string());
+    } else if ty.name == "InlayHintClientCapabilities" && field.name == "resolveSupport" {
+      name_hints.push("InlayHintResolveSupportCapabilities".to_string());
+    } else if ty.name == "CodeActionClientCapabilities" && field.name == "resolveSupport" {
+      name_hints.push("CodeActionResolveSupportCapabilities".to_string());
+    } else if ty.name == "WorkspaceSymbolClientCapabilities" && field.name == "resolveSupport" {
+      name_hints.push("WorkspaceSymbolResolveSupportCapabilities".to_string());
+    } else if ty.name.ends_with("Capabilities") {
+      name_hints.push(format!("{}Capabilities", to_pascal_case(&field.name)));
+    }
+
+    name_hints.push(to_pascal_case(&field.name));
+
     if field.optional {
       if matches!(&field.ty, Type::Reference { name } if *name == ty.name) {
         g.write("Option<Box<");
-        write_type(g, &field.ty, vec![to_pascal_case(&field.name)]);
+        write_type(g, &field.ty, name_hints);
         g.write(">>");
       } else if let Type::Or { items } = &field.ty {
         let mut items = items.clone();
         if !items.iter().any(|item| item.is_null()) {
           items.push(Type::Base { name: BaseType::Null });
         }
-        write_type(g, &Type::Or { items }, vec![to_pascal_case(&field.name)]);
+        write_type(g, &Type::Or { items }, name_hints);
       } else {
         g.write("Option<");
-        write_type(g, &field.ty, vec![to_pascal_case(&field.name)]);
+        write_type(g, &field.ty, name_hints);
         g.write(">");
       }
     } else {
-      write_type(g, &field.ty, vec![to_pascal_case(&field.name)]);
+      write_type(g, &field.ty, name_hints);
     }
 
     g.writeln(",");
@@ -194,11 +216,18 @@ fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool, n
       }
       g.write(format_args!("{}: ", to_snake_case(&prop.name)));
     }
-    write_type(
-      g,
-      &prop.ty,
-      vec![to_pascal_case(&prop.name), format!("{}{}", name_hint, to_pascal_case(&prop.name))],
-    );
+
+    let mut name_hints = vec![];
+
+    if name_hint == "AnonCompletionItemCapabilities" && prop.name == "tagSupport" {
+      name_hints.push("AnonCompletionItemTagSupportCapabilities".to_string());
+    } else {
+      name_hints.push(format!("{}{}", name_hint, to_pascal_case(&prop.name)));
+    }
+
+    name_hints.push(to_pascal_case(&prop.name));
+
+    write_type(g, &prop.ty, name_hints);
     g.writeln(",");
   }
 }
