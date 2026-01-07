@@ -90,11 +90,11 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
     g.writeln(format_args!("impl Request for {name} {{"));
     g.writeln(format_args!("const METHOD: &'static str = \"{}\";", n.method));
 
-    g.write(format_args!("type Params ="));
+    g.write(format_args!("type Params = "));
     write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: "null".into() }));
     g.writeln(format_args!(";"));
 
-    g.write(format_args!("type Result ="));
+    g.write(format_args!("type Result = "));
     write_type(g, &n.result);
     g.writeln(format_args!(";"));
 
@@ -122,7 +122,7 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
     g.writeln(format_args!("impl Notification for {name} {{"));
     g.writeln(format_args!("const METHOD: &'static str = \"{}\";", n.method));
 
-    g.write(format_args!("type Params ="));
+    g.write(format_args!("type Params = "));
     write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: "null".into() }));
     g.writeln(format_args!(";"));
 
