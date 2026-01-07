@@ -58,7 +58,7 @@ impl Names {
         "ResponseError" => "",
         "SignatureHelpRequest" => "crate::request::TextDocumentSignatureHelp",
         "TextDocumentPosition" => "TextDocumentPositionParams",
-        "WorkspaceSymbolRequest" => "crate::request::WorkspaceSymbol",
+        "WorkspaceSymbolRequest" => "crate::request::WorkspaceSymbolRequest",
 
         s if s.starts_with("CallHierarchyIncomingCall") => "crate::CallHierarchyIncomingCall",
         s if s.starts_with("CallHierarchyItem") => "crate::CallHierarchyItem",
