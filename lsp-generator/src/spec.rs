@@ -122,7 +122,7 @@ pub struct Property {
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Type {
-  Base { name: String },
+  Base { name: BaseType },
   Reference { name: String },
   Or { items: Vec<Type> },
   Literal { value: Literal },
@@ -136,4 +136,24 @@ pub enum Type {
 #[serde(rename_all = "camelCase")]
 pub struct Literal {
   pub properties: Vec<Property>,
+}
+
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+pub enum BaseType {
+  #[serde(rename = "null")]
+  Null,
+  #[serde(rename = "string")]
+  String,
+  #[serde(rename = "uinteger")]
+  Uinteger,
+  #[serde(rename = "integer")]
+  Integer,
+  #[serde(rename = "boolean")]
+  Boolean,
+  #[serde(rename = "decimal")]
+  Decimal,
+  #[serde(rename = "DocumentUri")]
+  DocumentUri,
+  #[serde(rename = "URI")]
+  Uri,
 }

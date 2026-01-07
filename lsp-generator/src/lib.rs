@@ -97,7 +97,7 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
     g.writeln(format_args!("const METHOD: &'static str = \"{}\";", n.method));
 
     g.write(format_args!("type Params = "));
-    write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: "null".into() }));
+    write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }));
     g.writeln(format_args!(";"));
 
     g.write(format_args!("type Result = "));
@@ -129,7 +129,7 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
     g.writeln(format_args!("const METHOD: &'static str = \"{}\";", n.method));
 
     g.write(format_args!("type Params = "));
-    write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: "null".into() }));
+    write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }));
     g.writeln(format_args!(";"));
 
     g.writeln(format_args!("}}"));
@@ -138,22 +138,30 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
 
 fn write_type(g: &mut Generator, ty: &Type) {
   match ty {
-    Type::Base { name } if name == "null" => g.write("()"),
-    Type::Base { name } => g.write(name),
+    Type::Base { name } => match name {
+      BaseType::Null => g.write("()"),
+      BaseType::Boolean => g.write("bool"),
+      BaseType::Integer => g.write("i32"),
+      BaseType::Uinteger => g.write("u32"),
+      BaseType::String => g.write("String"),
+      BaseType::Decimal => g.write("f64"),
+      BaseType::DocumentUri => g.write("String"),
+      BaseType::Uri => g.write("String"),
+    },
     Type::Reference { name } if name == "LSPAny" => g.write("serde_json::Value"),
     Type::Reference { name } => g.write(name),
 
     Type::Or { items } => {
       if items.len() == 1 {
         write_type(g, &items[0]);
-      } else if items.iter().any(|item| item == &Type::Base { name: "null".into() }) {
+      } else if items.iter().any(|item| item == &Type::Base { name: BaseType::Null }) {
         g.write("Option<");
         write_type(
           g,
           &Type::Or {
             items: items
               .iter()
-              .filter(|item| *item != &Type::Base { name: "null".into() })
+              .filter(|item| *item != &Type::Base { name: BaseType::Null })
               .cloned()
               .collect(),
           },
@@ -212,7 +220,7 @@ fn write_type(g: &mut Generator, ty: &Type) {
 
     Type::Literal { value } => {
       if value.properties.is_empty() {
-        write_type(g, &Type::Base { name: "null".into() });
+        write_type(g, &Type::Base { name: BaseType::Null });
       } else {
         let name = value.properties.iter().map(|p| p.name.clone()).collect::<Vec<_>>().join("");
 
