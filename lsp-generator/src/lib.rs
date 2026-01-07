@@ -122,11 +122,11 @@ fn generate_struct_fields(
 
     g.write_doc(&field.documentation);
     if field.name == "type" {
-      g.write("#[serde(rename = \"type\")]");
+      g.writeln("#[serde(rename = \"type\")]");
       g.write("ty: ");
     } else {
       if to_snake_case(&field.name) != field.name {
-        g.write(format_args!("#[serde(rename = \"{}\")]", field.name));
+        g.writeln(format_args!("#[serde(rename = \"{}\")]", field.name));
       }
       g.write(format_args!("pub {}: ", to_snake_case(&field.name)));
     }
@@ -183,11 +183,11 @@ fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool) {
   for prop in &lit.properties {
     g.write_doc(&prop.documentation);
     if prop.name == "type" {
-      g.write("#[serde(rename = \"type\")]");
+      g.writeln("#[serde(rename = \"type\")]");
       g.write("ty: ");
     } else {
       if to_snake_case(&prop.name) != prop.name {
-        g.write(format_args!("#[serde(rename = \"{}\")]", prop.name));
+        g.writeln(format_args!("#[serde(rename = \"{}\")]", prop.name));
       }
       if public {
         g.write("pub ");
