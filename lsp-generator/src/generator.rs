@@ -50,7 +50,7 @@ impl Drop for Generator {
 
     std::fs::write(&self.path, &self.output).unwrap();
 
-    let cmd = Command::new("rustfmt").arg(&self.path).output().unwrap();
+    let cmd = Command::new("rustfmt").arg("--edition=2024").arg(&self.path).output().unwrap();
     if !cmd.status.success() {
       println!("rustfmt failed.\n");
       println!("{}", String::from_utf8_lossy(&cmd.stderr));
