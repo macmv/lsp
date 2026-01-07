@@ -13,6 +13,8 @@ pub fn main() {
 
   let names = Names::from_spec(&spec);
 
+  std::fs::write("src/lsp_version.txt", spec.meta_data.version).unwrap();
+
   generate_requests(&mut Generator::new("src/request.rs", &names), &spec.requests);
   generate_notifications(&mut Generator::new("src/notification.rs", &names), &spec.notifications);
 

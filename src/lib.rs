@@ -1,3 +1,19 @@
+//! # Language Server Protocol (LSP)
+//!
+//! This crate provides types for the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/).
+//! It makes no assumptions about the transport layer (e.g. TCP, Unix sockets,
+//! etc.), or if the consumer is a client or server.
+//!
+//! This crate uses [`serde`] for all encodable types.
+//!
+//! # Version
+//!
+//! Almost all types in this crate are generated from the [LSP
+//! model](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/metaModel/metaModel.json).
+//! This code was generated from LSP version
+#![doc = concat!("**", include_str!("lsp_version.txt"), "**.")]
+//!
+
 #![allow(rustdoc::redundant_explicit_links)] // explicit links are simpler
 #![allow(deprecated)] // we need to use the deprecated types
 
