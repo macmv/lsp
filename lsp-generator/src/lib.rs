@@ -526,7 +526,9 @@ fn to_snake_case(name: &str) -> String {
 
   for ch in name.chars() {
     if ch.is_ascii_uppercase() {
-      snake_case.push('_');
+      if !snake_case.is_empty() {
+        snake_case.push('_');
+      }
       snake_case.push(ch.to_ascii_lowercase());
     } else {
       snake_case.push(ch);
