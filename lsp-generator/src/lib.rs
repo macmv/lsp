@@ -40,7 +40,10 @@ pub fn generate() {
           g.write("#[serde(rename = \"type\")]");
           g.write("ty: ");
         } else {
-          g.write(format_args!("pub {}: ", prop.name));
+          if to_snake_case(&prop.name) != prop.name {
+            g.write(format_args!("#[serde(rename = \"{}\")]", prop.name));
+          }
+          g.write(format_args!("pub {}: ", to_snake_case(&prop.name)));
         }
         write_type(&mut g, &prop.ty);
         g.writeln(",");
@@ -61,7 +64,10 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
       g.write("#[serde(rename = \"type\")]");
       g.write("ty: ");
     } else {
-      g.write(format_args!("pub {}: ", field.name));
+      if to_snake_case(&field.name) != field.name {
+        g.write(format_args!("#[serde(rename = \"{}\")]", field.name));
+      }
+      g.write(format_args!("pub {}: ", to_snake_case(&field.name)));
     }
     write_type(g, &field.ty);
     g.writeln(",");
@@ -215,6 +221,21 @@ fn write_type(g: &mut Generator, ty: &Type) {
       }
     }
   }
+}
+
+fn to_snake_case(name: &str) -> String {
+  let mut snake_case = String::new();
+
+  for ch in name.chars() {
+    if ch.is_ascii_uppercase() {
+      snake_case.push('_');
+      snake_case.push(ch.to_ascii_lowercase());
+    } else {
+      snake_case.push(ch);
+    }
+  }
+
+  snake_case
 }
 
 fn notification_name(method: &str) -> String {
