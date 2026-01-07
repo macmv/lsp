@@ -28,6 +28,10 @@ pub fn main() {
     spec.structures.iter().map(|ty| (ty.name.as_str(), ty)).collect::<HashMap<&str, &Structure>>();
 
   for ty in &spec.structures {
+    if ty.name == "_InitializeParams" {
+      continue;
+    }
+
     generate_struct(&mut g, ty, &structs);
   }
 
@@ -66,7 +70,7 @@ fn generate_struct_fields(
   g: &mut Generator,
   ty: &Structure,
   parent: Option<&Structure>,
-  _structs: &HashMap<&str, &Structure>,
+  structs: &HashMap<&str, &Structure>,
 ) {
   for field in ty.properties.iter() {
     if let Some(p) = parent
@@ -139,20 +143,22 @@ fn generate_struct_fields(
   }
 
   for extends in &ty.extends {
-    // NB: Structs can be inlined with this. I think they look better without
-    // inlining? Need to experiment a bit.
-    /*
-    if let Type::Reference { name } = &extends
-      && let Some(mixin) = structs.get(name.as_str())
-    {
+    if let Some(name) = should_inline(&extends) {
+      let Some(mixin) = structs.get(name.as_str()) else { panic!("mixin not found") };
       generate_struct_fields(g, mixin, Some(ty), structs);
     } else {
-    */
+      g.writeln("#[serde(flatten)]");
+      g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
+      write_type(g, &extends, vec![]);
+      g.writeln(",");
+    }
+  }
+}
 
-    g.writeln("#[serde(flatten)]");
-    g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
-    write_type(g, &extends, vec![]);
-    g.writeln(",");
+fn should_inline(ty: &Type) -> Option<String> {
+  match ty {
+    Type::Reference { name } if name == "_InitializeParams" => Some(name.clone()),
+    _ => None,
   }
 }
 
