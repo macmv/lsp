@@ -65,20 +65,23 @@ fn generate_struct(g: &mut Generator, ty: &Structure, structs: &HashMap<&str, &S
   write_derives(g);
   g.writeln(format_args!("pub struct {} {{", ty.name));
 
-  generate_struct_fields(g, ty, None, structs);
+  generate_struct_fields(g, &ty.properties, None, &ty.name, structs, &ty.mixins, &ty.extends);
 
   g.writeln(format_args!("}}"));
 }
 
 fn generate_struct_fields(
   g: &mut Generator,
-  ty: &Structure,
-  parent: Option<&Structure>,
+  fields: &[Property],
+  parent: Option<&[Property]>,
+  struct_name: &str,
   structs: &HashMap<&str, &Structure>,
+  mixins: &[Type],
+  extends: &[Type],
 ) {
-  for field in ty.properties.iter() {
+  for field in fields.iter() {
     if let Some(p) = parent
-      && p.properties.iter().any(|p| p.name == field.name)
+      && p.iter().any(|p| p.name == field.name)
     {
       continue;
     }
@@ -99,26 +102,26 @@ fn generate_struct_fields(
 
     // These two are functionally identical from all reasonable perspectives, except
     // for the inner array type of the one field they share. So we hardcode it.
-    if ty.name == "DocumentSymbolClientCapabilities" && field.name == "tagSupport" {
+    if struct_name == "DocumentSymbolClientCapabilities" && field.name == "tagSupport" {
       name_hints.push("DocumentSymbolTagSupportCapabilities".to_string());
-    } else if ty.name == "PublishDiagnosticsClientCapabilities" && field.name == "tagSupport" {
+    } else if struct_name == "PublishDiagnosticsClientCapabilities" && field.name == "tagSupport" {
       name_hints.push("PublishDiagnosticsTagSupportCapabilities".to_string());
-    } else if ty.name == "WorkspaceSymbolClientCapabilities" && field.name == "tagSupport" {
+    } else if struct_name == "WorkspaceSymbolClientCapabilities" && field.name == "tagSupport" {
       name_hints.push("WorkspaceSymbolTagSupportCapabilities".to_string());
-    } else if ty.name == "InlayHintClientCapabilities" && field.name == "resolveSupport" {
+    } else if struct_name == "InlayHintClientCapabilities" && field.name == "resolveSupport" {
       name_hints.push("InlayHintResolveSupportCapabilities".to_string());
-    } else if ty.name == "CodeActionClientCapabilities" && field.name == "resolveSupport" {
+    } else if struct_name == "CodeActionClientCapabilities" && field.name == "resolveSupport" {
       name_hints.push("CodeActionResolveSupportCapabilities".to_string());
-    } else if ty.name == "WorkspaceSymbolClientCapabilities" && field.name == "resolveSupport" {
+    } else if struct_name == "WorkspaceSymbolClientCapabilities" && field.name == "resolveSupport" {
       name_hints.push("WorkspaceSymbolResolveSupportCapabilities".to_string());
-    } else if ty.name.ends_with("Capabilities") {
+    } else if struct_name.ends_with("Capabilities") {
       name_hints.push(format!("{}Capabilities", to_pascal_case(&field.name)));
     }
 
     name_hints.push(to_pascal_case(&field.name));
 
     if field.optional {
-      if matches!(&field.ty, Type::Reference { name } if *name == ty.name) {
+      if matches!(&field.ty, Type::Reference { name } if *name == struct_name) {
         g.write("Option<Box<");
         write_type(g, &field.ty, name_hints);
         g.write(">>");
@@ -140,17 +143,25 @@ fn generate_struct_fields(
     g.writeln(",");
   }
 
-  for mixin in &ty.mixins {
+  for mixin in mixins {
     g.writeln("#[serde(flatten)]");
     g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(mixin))));
     write_type(g, &mixin, vec![]);
     g.writeln(",");
   }
 
-  for extends in &ty.extends {
+  for extends in extends {
     if let Some(name) = should_inline(&extends) {
       let Some(mixin) = structs.get(name.as_str()) else { panic!("mixin not found") };
-      generate_struct_fields(g, mixin, Some(ty), structs);
+      generate_struct_fields(
+        g,
+        &mixin.properties,
+        Some(fields),
+        struct_name,
+        structs,
+        &mixin.mixins,
+        &mixin.extends,
+      );
     } else {
       g.writeln("#[serde(flatten)]");
       g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
