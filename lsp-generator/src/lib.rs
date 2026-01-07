@@ -134,21 +134,21 @@ fn generate_struct_fields(
     if field.optional {
       if matches!(&field.ty, Type::Reference { name } if *name == ty.name) {
         g.write("Option<Box<");
-        write_type(g, &field.ty);
+        write_type(g, &field.ty, Some(to_pascal_case(&field.name)));
         g.write(">>");
       } else if let Type::Or { items } = &field.ty {
         let mut items = items.clone();
         if !items.iter().any(|item| item.is_null()) {
           items.push(Type::Base { name: BaseType::Null });
         }
-        write_type(g, &Type::Or { items });
+        write_type(g, &Type::Or { items }, Some(to_pascal_case(&field.name)));
       } else {
         g.write("Option<");
-        write_type(g, &field.ty);
+        write_type(g, &field.ty, Some(to_pascal_case(&field.name)));
         g.write(">");
       }
     } else {
-      write_type(g, &field.ty);
+      write_type(g, &field.ty, Some(to_pascal_case(&field.name)));
     }
 
     g.writeln(",");
@@ -157,7 +157,7 @@ fn generate_struct_fields(
   for mixin in &ty.mixins {
     g.writeln("#[serde(flatten)]");
     g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(mixin))));
-    write_type(g, &mixin);
+    write_type(g, &mixin, None);
     g.writeln(",");
   }
 
@@ -174,7 +174,7 @@ fn generate_struct_fields(
 
     g.writeln("#[serde(flatten)]");
     g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
-    write_type(g, &extends);
+    write_type(g, &extends, None);
     g.writeln(",");
   }
 }
@@ -194,7 +194,7 @@ fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool) {
       }
       g.write(format_args!("{}: ", to_snake_case(&prop.name)));
     }
-    write_type(g, &prop.ty);
+    write_type(g, &prop.ty, Some(to_pascal_case(&prop.name)));
     g.writeln(",");
   }
 }
@@ -395,7 +395,7 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
 
       if items.len() == 1 {
         g.writeln(format_args!("pub type {} = ", ty.name));
-        write_type(g, &items[0]);
+        write_type(g, &items[0], Some(ty.name.clone()));
         g.writeln(";");
       } else {
         g.writeln("#[derive(Serialize, Deserialize, Clone)]");
@@ -412,7 +412,7 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
             }
             _ => {
               g.write("(");
-              write_type(g, it);
+              write_type(g, it, None);
               g.writeln("),");
             }
           }
@@ -436,7 +436,7 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
 
     _ => {
       g.writeln(format_args!("pub type {} = ", ty.name));
-      write_type(g, &ty.ty);
+      write_type(g, &ty.ty, Some(ty.name.clone()));
       g.writeln(";");
     }
   }
@@ -483,11 +483,15 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
     g.writeln(format_args!("const METHOD: &'static str = \"{}\";", n.method));
 
     g.write(format_args!("type Params = "));
-    write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }));
+    write_type(
+      g,
+      &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }),
+      Some(format!("{name}Params")),
+    );
     g.writeln(format_args!(";"));
 
     g.write(format_args!("type Result = "));
-    write_type(g, &n.result);
+    write_type(g, &n.result, Some(format!("{name}Result")));
     g.writeln(format_args!(";"));
 
     g.writeln(format_args!("}}"));
@@ -515,14 +519,18 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
     g.writeln(format_args!("const METHOD: &'static str = \"{}\";", n.method));
 
     g.write(format_args!("type Params = "));
-    write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }));
+    write_type(
+      g,
+      &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }),
+      Some(format!("{name}Params")),
+    );
     g.writeln(format_args!(";"));
 
     g.writeln(format_args!("}}"));
   }
 }
 
-fn write_type(g: &mut Generator, ty: &Type) {
+fn write_type(g: &mut Generator, ty: &Type, name_hint: Option<String>) {
   match ty {
     Type::Base { name } => match name {
       BaseType::Null => g.write("()"),
@@ -539,37 +547,38 @@ fn write_type(g: &mut Generator, ty: &Type) {
 
     Type::Or { items } => {
       if items.len() == 1 {
-        write_type(g, &items[0]);
+        write_type(g, &items[0], name_hint);
       } else if items.iter().any(|item| item.is_null()) {
         g.write("Option<");
         write_type(
           g,
           &Type::Or { items: items.iter().filter(|item| !item.is_null()).cloned().collect() },
+          name_hint,
         );
         g.write(">");
       } else if items.len() == 2 {
         g.write("Or2<");
-        write_type(g, &items[0]);
+        write_type(g, &items[0], name_hint.clone());
         g.write(", ");
-        write_type(g, &items[1]);
+        write_type(g, &items[1], name_hint);
         g.write(">");
       } else if items.len() == 3 {
         g.write("Or3<");
-        write_type(g, &items[0]);
+        write_type(g, &items[0], name_hint.clone());
         g.write(", ");
-        write_type(g, &items[1]);
+        write_type(g, &items[1], name_hint.clone());
         g.write(", ");
-        write_type(g, &items[2]);
+        write_type(g, &items[2], name_hint);
         g.write(">");
       } else if items.len() == 4 {
         g.write("Or4<");
-        write_type(g, &items[0]);
+        write_type(g, &items[0], name_hint.clone());
         g.write(", ");
-        write_type(g, &items[1]);
+        write_type(g, &items[1], name_hint.clone());
         g.write(", ");
-        write_type(g, &items[2]);
+        write_type(g, &items[2], name_hint.clone());
         g.write(", ");
-        write_type(g, &items[3]);
+        write_type(g, &items[3], name_hint);
         g.write(">");
       } else {
         panic!("union of length {}", items.len());
@@ -578,7 +587,7 @@ fn write_type(g: &mut Generator, ty: &Type) {
 
     Type::Array { element } => {
       g.write("Vec<");
-      write_type(g, element);
+      write_type(g, element, name_hint);
       g.write(">");
     }
 
@@ -588,16 +597,16 @@ fn write_type(g: &mut Generator, ty: &Type) {
         if i != 0 {
           g.write(", ");
         }
-        write_type(g, item);
+        write_type(g, item, None);
       }
       g.write(")");
     }
 
     Type::Map { key, value } => {
       g.write("HashMap<");
-      write_type(g, key);
+      write_type(g, key, None);
       g.write(", ");
-      write_type(g, value);
+      write_type(g, value, None);
       g.write(">");
     }
 
@@ -607,9 +616,15 @@ fn write_type(g: &mut Generator, ty: &Type) {
 
     Type::Literal { value } => {
       if value.properties.is_empty() {
-        write_type(g, &Type::Base { name: BaseType::Null });
+        write_type(g, &Type::Base { name: BaseType::Null }, name_hint);
       } else {
-        let name = anon_struct_name(&value);
+        let name = match name_hint {
+          Some(hint) => {
+            let name = format!("Anon{hint}");
+            if g.contains_type(&name) { anon_struct_name(&value) } else { name }
+          }
+          None => anon_struct_name(&value),
+        };
 
         g.write(&name);
         g.add_type(name, value.clone());
@@ -658,7 +673,12 @@ fn to_pascal_case(method: &str) -> String {
 fn rpc_name(method: &str) -> String { to_pascal_case(method) }
 
 fn anon_struct_name(value: &Literal) -> String {
-  let name = value.properties.iter().map(|p| to_snake_case(&p.name)).collect::<Vec<_>>().join("_");
+  let name = value
+    .properties
+    .iter()
+    .map(|p| format!("{}_{}", to_snake_case(&p.name), to_snake_case(&variant_name(&p.ty))))
+    .collect::<Vec<_>>()
+    .join("_");
   format!("Anon{}", to_pascal_case(&name))
 }
 
