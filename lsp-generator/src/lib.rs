@@ -626,13 +626,14 @@ fn write_type(g: &mut Generator, ty: &Type, name_hint: Option<String>) {
       if value.properties.is_empty() {
         write_type(g, &Type::Base { name: BaseType::Null }, name_hint);
       } else {
-        let name = match name_hint {
-          Some(hint) => {
-            let name = format!("Anon{hint}");
-            if g.contains_type(&name) { anon_struct_name(&value) } else { name }
-          }
+        let mut name = match name_hint {
+          Some(hint) => format!("Anon{hint}"),
           None => anon_struct_name(&value),
         };
+
+        while g.contains_type(&name) {
+          name.push('_');
+        }
 
         g.write(&name);
         g.add_type(name, value.clone());

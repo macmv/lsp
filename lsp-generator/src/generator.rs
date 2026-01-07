@@ -91,7 +91,7 @@ impl<'a> Generator<'a> {
   pub fn add_type(&mut self, name: String, ty: Literal) {
     if let Some(prev) = self.type_map.insert(name.clone(), ty.clone()) {
       if prev != ty {
-        eprintln!("TYPE MISMATCH for {name}");
+        panic!("type mismatch for {name}\n{prev:?}\n{ty:?}");
       }
     } else {
       self.types.push((name, ty));
