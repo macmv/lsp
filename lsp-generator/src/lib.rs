@@ -90,7 +90,7 @@ pub fn generate() {
     for (name, ty) in types {
       g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
       g.writeln(format_args!("pub struct {} {{", name));
-      generate_anon_struct_fields(&mut g, &ty, true);
+      generate_anon_struct_fields(&mut g, &ty, true, &name);
       g.writeln("}");
     }
   }
@@ -134,21 +134,21 @@ fn generate_struct_fields(
     if field.optional {
       if matches!(&field.ty, Type::Reference { name } if *name == ty.name) {
         g.write("Option<Box<");
-        write_type(g, &field.ty, Some(to_pascal_case(&field.name)));
+        write_type(g, &field.ty, vec![to_pascal_case(&field.name)]);
         g.write(">>");
       } else if let Type::Or { items } = &field.ty {
         let mut items = items.clone();
         if !items.iter().any(|item| item.is_null()) {
           items.push(Type::Base { name: BaseType::Null });
         }
-        write_type(g, &Type::Or { items }, Some(to_pascal_case(&field.name)));
+        write_type(g, &Type::Or { items }, vec![to_pascal_case(&field.name)]);
       } else {
         g.write("Option<");
-        write_type(g, &field.ty, Some(to_pascal_case(&field.name)));
+        write_type(g, &field.ty, vec![to_pascal_case(&field.name)]);
         g.write(">");
       }
     } else {
-      write_type(g, &field.ty, Some(to_pascal_case(&field.name)));
+      write_type(g, &field.ty, vec![to_pascal_case(&field.name)]);
     }
 
     g.writeln(",");
@@ -157,7 +157,7 @@ fn generate_struct_fields(
   for mixin in &ty.mixins {
     g.writeln("#[serde(flatten)]");
     g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(mixin))));
-    write_type(g, &mixin, None);
+    write_type(g, &mixin, vec![]);
     g.writeln(",");
   }
 
@@ -174,12 +174,12 @@ fn generate_struct_fields(
 
     g.writeln("#[serde(flatten)]");
     g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
-    write_type(g, &extends, None);
+    write_type(g, &extends, vec![]);
     g.writeln(",");
   }
 }
 
-fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool) {
+fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool, name_hint: &str) {
   for prop in &lit.properties {
     g.write_doc(&prop.documentation);
     if prop.name == "type" {
@@ -194,7 +194,11 @@ fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool) {
       }
       g.write(format_args!("{}: ", to_snake_case(&prop.name)));
     }
-    write_type(g, &prop.ty, Some(to_pascal_case(&prop.name)));
+    write_type(
+      g,
+      &prop.ty,
+      vec![to_pascal_case(&prop.name), format!("{}{}", name_hint, to_pascal_case(&prop.name))],
+    );
     g.writeln(",");
   }
 }
@@ -395,7 +399,7 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
 
       if items.len() == 1 {
         g.writeln(format_args!("pub type {} = ", ty.name));
-        write_type(g, &items[0], Some(ty.name.clone()));
+        write_type(g, &items[0], vec![ty.name.clone()]);
         g.writeln(";");
       } else {
         g.writeln("#[derive(Serialize, Deserialize, Clone)]");
@@ -407,12 +411,12 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
           match it {
             Type::Literal { value } => {
               g.writeln("{");
-              generate_anon_struct_fields(g, value, false);
+              generate_anon_struct_fields(g, value, false, &ty.name);
               g.writeln("},");
             }
             _ => {
               g.write("(");
-              write_type(g, it, None);
+              write_type(g, it, vec![]);
               g.writeln("),");
             }
           }
@@ -436,7 +440,7 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
 
     _ => {
       g.writeln(format_args!("pub type {} = ", ty.name));
-      write_type(g, &ty.ty, Some(ty.name.clone()));
+      write_type(g, &ty.ty, vec![ty.name.clone()]);
       g.writeln(";");
     }
   }
@@ -486,12 +490,12 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
     write_type(
       g,
       &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }),
-      Some(format!("{name}Params")),
+      vec![format!("{name}Params")],
     );
     g.writeln(format_args!(";"));
 
     g.write(format_args!("type Result = "));
-    write_type(g, &n.result, Some(format!("{name}Result")));
+    write_type(g, &n.result, vec![format!("{name}Result")]);
     g.writeln(format_args!(";"));
 
     g.writeln(format_args!("}}"));
@@ -522,7 +526,7 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
     write_type(
       g,
       &n.params.as_ref().unwrap_or(&Type::Base { name: BaseType::Null }),
-      Some(format!("{name}Params")),
+      vec![format!("{name}Params")],
     );
     g.writeln(format_args!(";"));
 
@@ -530,7 +534,7 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
   }
 }
 
-fn write_type(g: &mut Generator, ty: &Type, name_hint: Option<String>) {
+fn write_type(g: &mut Generator, ty: &Type, name_hint: Vec<String>) {
   match ty {
     Type::Base { name } => match name {
       BaseType::Null => g.write("()"),
@@ -605,16 +609,16 @@ fn write_type(g: &mut Generator, ty: &Type, name_hint: Option<String>) {
         if i != 0 {
           g.write(", ");
         }
-        write_type(g, item, None);
+        write_type(g, item, vec![]);
       }
       g.write(")");
     }
 
     Type::Map { key, value } => {
       g.write("HashMap<");
-      write_type(g, key, None);
+      write_type(g, key, vec![]);
       g.write(", ");
-      write_type(g, value, None);
+      write_type(g, value, vec![]);
       g.write(">");
     }
 
@@ -626,9 +630,13 @@ fn write_type(g: &mut Generator, ty: &Type, name_hint: Option<String>) {
       if value.properties.is_empty() {
         write_type(g, &Type::Base { name: BaseType::Null }, name_hint);
       } else {
-        let mut name = match name_hint {
-          Some(hint) => format!("Anon{hint}"),
-          None => anon_struct_name(&value),
+        let mut name = match name_hint.iter().find_map(|n| {
+          let name = if n.starts_with("Anon") { n.clone() } else { format!("Anon{n}") };
+          if !g.contains_type(&name) { Some(name) } else { None }
+        }) {
+          Some(name) => name,
+          None if name_hint.is_empty() => anon_struct_name(&value),
+          None => format!("Anon{}", name_hint[0].clone()),
         };
 
         while g.contains_type(&name) {
