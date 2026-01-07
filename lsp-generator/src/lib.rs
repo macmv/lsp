@@ -1,19 +1,24 @@
 use std::collections::HashMap;
 
-use crate::{generator::Generator, spec::*};
+use crate::{generator::Generator, names::Names, spec::*};
 
 const URL: &str = "https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/metaModel/metaModel.json";
 
 mod generator;
+mod names;
 mod spec;
 
 pub fn generate() {
   let spec = ureq::get(URL).call().unwrap().into_body().read_json::<Spec>().unwrap();
 
-  generate_requests(&mut Generator::new("src/request.rs"), &spec.requests);
-  generate_notifications(&mut Generator::new("src/notification.rs"), &spec.notifications);
+  let names = Names::from_spec(&spec);
 
-  let mut g = Generator::new("src/lib.rs");
+  generate_requests(&mut Generator::new("src/request.rs", &names), &spec.requests);
+  generate_notifications(&mut Generator::new("src/notification.rs", &names), &spec.notifications);
+
+  let mut g = Generator::new("src/lib.rs", &names);
+  g.writeln("#![allow(rustdoc::redundant_explicit_links)]"); // explicit links are simpler
+  g.writeln("");
   g.writeln("use serde::{Deserialize, Serialize, de, ser};");
   g.writeln("use std::{collections::HashMap, fmt};");
   g.writeln("");

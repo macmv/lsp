@@ -9,37 +9,42 @@ use std::{
 
 use regex::Regex;
 
-use crate::spec::Literal;
+use crate::{names::Names, spec::Literal};
 
-pub struct Generator {
+pub struct Generator<'a> {
   output: String,
   path:   PathBuf,
 
   type_names: HashSet<String>,
   types:      Vec<(String, Literal)>,
+
+  names: &'a Names,
 }
 
 const LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\}").unwrap());
 const LINK_NAMED_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\s(\S+)\}").unwrap());
 
-impl Generator {
-  pub fn new(path: impl AsRef<Path>) -> Self {
+impl<'a> Generator<'a> {
+  pub fn new(path: impl AsRef<Path>, names: &'a Names) -> Self {
     Generator {
-      output:     String::new(),
-      path:       path.as_ref().to_path_buf(),
+      output: String::new(),
+      path: path.as_ref().to_path_buf(),
       type_names: HashSet::new(),
-      types:      vec![],
+      types: vec![],
+      names,
     }
   }
 
   pub fn writeln(&mut self, text: impl Display) { writeln!(self.output, "{text}").unwrap(); }
   pub fn write(&mut self, text: impl Display) { write!(self.output, "{text}").unwrap(); }
   pub fn write_doc(&mut self, doc: &str) {
-    let doc = LINK_REGEX
-      .replace_all(doc, |caps: &regex::Captures| format!("[`{}`]", caps.get(1).unwrap().as_str()));
-    let doc = LINK_NAMED_REGEX.replace_all(&doc, |caps: &regex::Captures| {
+    let doc = LINK_REGEX.replace_all(doc, |caps: &regex::Captures| {
       let ty = caps.get(1).unwrap().as_str();
+      format!("[`{}`]({})", ty, self.names.resolve(ty))
+    });
+    let doc = LINK_NAMED_REGEX.replace_all(&doc, |caps: &regex::Captures| {
+      let ty = self.names.resolve(caps.get(1).unwrap().as_str());
       let mut text = Cow::Borrowed(caps.get(2).unwrap().as_str());
 
       if text.ends_with("[]") {
@@ -63,7 +68,7 @@ impl Generator {
   pub fn drain_types(&mut self) -> Vec<(String, Literal)> { std::mem::take(&mut self.types) }
 }
 
-impl Drop for Generator {
+impl Drop for Generator<'_> {
   fn drop(&mut self) {
     if std::thread::panicking() {
       return;
