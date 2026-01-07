@@ -118,7 +118,7 @@ fn generate_struct_fields(
   g: &mut Generator,
   ty: &Structure,
   parent: Option<&Structure>,
-  structs: &HashMap<&str, &Structure>,
+  _structs: &HashMap<&str, &Structure>,
 ) {
   for field in ty.properties.iter() {
     if let Some(p) = parent
@@ -169,16 +169,20 @@ fn generate_struct_fields(
   }
 
   for extends in &ty.extends {
+    // NB: Structs can be inlined with this. I think they look better without
+    // inlining? Need to experiment a bit.
+    /*
     if let Type::Reference { name } = &extends
       && let Some(mixin) = structs.get(name.as_str())
     {
       generate_struct_fields(g, mixin, Some(ty), structs);
     } else {
-      g.writeln("#[serde(flatten)]");
-      g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
-      write_type(g, &extends);
-      g.writeln(",");
-    }
+    */
+
+    g.writeln("#[serde(flatten)]");
+    g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
+    write_type(g, &extends);
+    g.writeln(",");
   }
 }
 
