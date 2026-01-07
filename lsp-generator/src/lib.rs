@@ -98,17 +98,19 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
     }
 
     if field.optional {
-      let mut ty = field.ty.clone();
-      match &mut ty {
-        Type::Or { items } => {
-          if !items.contains(&Type::Base { name: BaseType::Null }) {
-            items.push(Type::Base { name: BaseType::Null });
-          }
-        }
-        _ => ty = Type::Or { items: vec![ty, Type::Base { name: BaseType::Null }] },
-      }
+      let needs_box = matches!(&field.ty, Type::Reference { name } if *name == ty.name);
 
-      write_type(g, &ty);
+      if needs_box {
+        g.write("Option<Box<");
+      } else {
+        g.write("Option<");
+      }
+      write_type(g, &field.ty);
+      if needs_box {
+        g.write(">>");
+      } else {
+        g.write(">");
+      }
     } else {
       write_type(g, &field.ty);
     }
