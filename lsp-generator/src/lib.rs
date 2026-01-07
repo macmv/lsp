@@ -526,7 +526,7 @@ fn to_pascal_case(method: &str) -> String {
 
 fn anon_struct_name(value: &Literal) -> String {
   let name = value.properties.iter().map(|p| to_snake_case(&p.name)).collect::<Vec<_>>().join("_");
-  to_pascal_case(&name)
+  format!("Anon{}", to_pascal_case(&name))
 }
 
 #[cfg(test)]
