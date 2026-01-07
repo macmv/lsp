@@ -1,6 +1,6 @@
 use std::{
   borrow::Cow,
-  collections::HashSet,
+  collections::HashMap,
   fmt::{Display, Write},
   path::{Path, PathBuf},
   process::Command,
@@ -15,8 +15,8 @@ pub struct Generator<'a> {
   output: String,
   path:   PathBuf,
 
-  type_names: HashSet<String>,
-  types:      Vec<(String, Literal)>,
+  type_map: HashMap<String, Literal>,
+  types:    Vec<(String, Literal)>,
 
   names: &'a Names,
 }
@@ -32,7 +32,7 @@ impl<'a> Generator<'a> {
     Generator {
       output: String::new(),
       path: path.as_ref().to_path_buf(),
-      type_names: HashSet::new(),
+      type_map: HashMap::new(),
       types: vec![],
       names,
     }
@@ -88,7 +88,9 @@ impl<'a> Generator<'a> {
 
   pub fn has_types(&self) -> bool { !self.types.is_empty() }
   pub fn add_type(&mut self, name: String, ty: Literal) {
-    if self.type_names.insert(name.clone()) {
+    if let Some(prev) = self.type_map.insert(name.clone(), ty.clone()) {
+      assert_eq!(prev, ty);
+    } else {
       self.types.push((name, ty));
     }
   }
