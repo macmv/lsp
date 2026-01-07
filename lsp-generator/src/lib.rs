@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{generator::Generator, spec::*};
 
 const URL: &str = "https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/metaModel/metaModel.json";
@@ -61,8 +63,11 @@ pub fn generate() {
   g.writeln("}");
   g.writeln("}");
 
+  let structs =
+    spec.structures.iter().map(|ty| (ty.name.as_str(), ty)).collect::<HashMap<&str, &Structure>>();
+
   for ty in &spec.structures {
-    generate_struct(&mut g, ty);
+    generate_struct(&mut g, ty, &structs);
   }
 
   for ty in &spec.enumerations {
@@ -98,12 +103,30 @@ pub fn generate() {
   }
 }
 
-fn generate_struct(g: &mut Generator, ty: &Structure) {
+fn generate_struct(g: &mut Generator, ty: &Structure, structs: &HashMap<&str, &Structure>) {
   g.writeln("");
   g.write_doc(&ty.documentation);
   g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
   g.writeln(format_args!("pub struct {} {{", ty.name));
+
+  generate_struct_fields(g, ty, None, structs);
+
+  g.writeln(format_args!("}}"));
+}
+
+fn generate_struct_fields(
+  g: &mut Generator,
+  ty: &Structure,
+  parent: Option<&Structure>,
+  structs: &HashMap<&str, &Structure>,
+) {
   for field in ty.properties.iter() {
+    if let Some(p) = parent
+      && p.properties.iter().any(|p| p.name == field.name)
+    {
+      continue;
+    }
+
     g.write_doc(&field.documentation);
     if field.name == "type" {
       g.write("#[serde(rename = \"type\")]");
@@ -144,13 +167,17 @@ fn generate_struct(g: &mut Generator, ty: &Structure) {
   }
 
   for extends in &ty.extends {
-    g.writeln("#[serde(flatten)]");
-    g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
-    write_type(g, &extends);
-    g.writeln(",");
+    if let Type::Reference { name } = &extends
+      && let Some(mixin) = structs.get(name.as_str())
+    {
+      generate_struct_fields(g, mixin, Some(ty), structs);
+    } else {
+      g.writeln("#[serde(flatten)]");
+      g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
+      write_type(g, &extends);
+      g.writeln(",");
+    }
   }
-
-  g.writeln(format_args!("}}"));
 }
 
 fn generate_enum(g: &mut Generator, ty: &Enumeration) {
