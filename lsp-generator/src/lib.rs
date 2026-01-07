@@ -327,6 +327,7 @@ fn variant_name(ty: &Type) -> String {
 
     Type::Reference { name } => name.clone(),
     Type::Array { .. } => "Many".into(),
+    Type::Literal { value } => anon_struct_name(value),
 
     _ => "T".to_string(),
   }
