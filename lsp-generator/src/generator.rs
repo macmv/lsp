@@ -39,7 +39,21 @@ impl<'a> Generator<'a> {
   pub fn writeln(&mut self, text: impl Display) { writeln!(self.output, "{text}").unwrap(); }
   pub fn write(&mut self, text: impl Display) { write!(self.output, "{text}").unwrap(); }
   pub fn write_doc(&mut self, doc: &str) {
-    let doc = LINK_REGEX.replace_all(doc, |caps: &regex::Captures| {
+    let mut doc = Cow::Borrowed(doc);
+
+    let deprecated = if let Some(start) = doc.find("@deprecated") {
+      let len = doc[start..].find('\n').unwrap_or(doc[start..].len());
+      let reason = doc[start + "@deprecated ".len()..start + len].to_string();
+      let mut d = doc.to_string();
+      d.replace_range(start..start + len, "");
+      doc = d.into();
+
+      Some(reason)
+    } else {
+      None
+    };
+
+    let doc = LINK_REGEX.replace_all(&doc, |caps: &regex::Captures| {
       let ty = caps.get(1).unwrap().as_str();
       format!("[`{}`]({})", ty, self.names.resolve(ty))
     });
@@ -56,6 +70,10 @@ impl<'a> Generator<'a> {
 
     for line in doc.lines() {
       writeln!(self.output, "/// {line}").unwrap();
+    }
+
+    if let Some(deprecated) = deprecated {
+      self.writeln(format_args!("#[deprecated = \"{deprecated}\"]"));
     }
   }
 
