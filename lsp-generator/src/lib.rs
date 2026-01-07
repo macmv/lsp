@@ -342,7 +342,7 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
 
   for n in requests {
     g.write_doc(&n.documentation);
-    let name = notification_name(&n.method);
+    let name = to_pascal_case(&n.method);
     g.writeln(format_args!("pub enum {name} {{}}"));
 
     g.writeln(format_args!("impl Request for {name} {{"));
@@ -374,7 +374,7 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
 
   for n in notifications {
     g.write_doc(&n.documentation);
-    let name = notification_name(&n.method);
+    let name = to_pascal_case(&n.method);
     g.writeln(format_args!("pub enum {name} {{}}"));
 
     g.writeln(format_args!("impl Notification for {name} {{"));
@@ -474,7 +474,7 @@ fn write_type(g: &mut Generator, ty: &Type) {
       if value.properties.is_empty() {
         write_type(g, &Type::Base { name: BaseType::Null });
       } else {
-        let name = value.properties.iter().map(|p| p.name.clone()).collect::<Vec<_>>().join("");
+        let name = anon_struct_name(&value);
 
         g.write(&name);
         g.add_type(name, value.clone());
@@ -498,9 +498,7 @@ fn to_snake_case(name: &str) -> String {
   snake_case
 }
 
-fn to_pascal_case(name: &str) -> String { name[0..1].to_ascii_uppercase() + &name[1..] }
-
-fn notification_name(method: &str) -> String {
+fn to_pascal_case(method: &str) -> String {
   let mut name = String::new();
   let mut capitalize = true;
   for c in method.chars() {
@@ -509,13 +507,20 @@ fn notification_name(method: &str) -> String {
         name.push(c.to_ascii_uppercase());
         capitalize = false;
       }
-      'a'..='z' => name.push(c),
-      'A'..='Z' => name.push(c),
+      'a'..='z' | 'A'..='Z' | '0'..='9' => {
+        name.push(c);
+        capitalize = false;
+      }
       _ => capitalize = true,
     }
   }
 
-  name
+  name.replace("UTF", "Utf")
+}
+
+fn anon_struct_name(value: &Literal) -> String {
+  let name = value.properties.iter().map(|p| to_snake_case(&p.name)).collect::<Vec<_>>().join("_");
+  to_pascal_case(&name)
 }
 
 #[cfg(test)]
@@ -527,9 +532,6 @@ mod tests {
 
   #[test]
   fn notification_name_works() {
-    assert_eq!(
-      notification_name("textDocument/publishDiagnostics"),
-      "TextDocumentPublishDiagnostics"
-    );
+    assert_eq!(to_pascal_case("textDocument/publishDiagnostics"), "TextDocumentPublishDiagnostics");
   }
 }
