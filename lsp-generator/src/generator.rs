@@ -44,6 +44,10 @@ impl Generator {
 
 impl Drop for Generator {
   fn drop(&mut self) {
+    if std::thread::panicking() {
+      return;
+    }
+
     if self.has_types() {
       panic!("leftover types: {:#?}", self.types);
     }
