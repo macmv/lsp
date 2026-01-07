@@ -9,7 +9,20 @@ mod names;
 mod spec;
 
 pub fn main() {
-  let spec = ureq::get(URL).call().unwrap().into_body().read_json::<Spec>().unwrap();
+  let mut spec = ureq::get(URL).call().unwrap().into_body().read_json::<Spec>().unwrap();
+
+  // FIXUP: This should be optional (`rootPath` is optional, but `rootUri` is
+  // not).
+  spec
+    .structures
+    .iter_mut()
+    .find(|s| s.name == "_InitializeParams")
+    .unwrap()
+    .properties
+    .iter_mut()
+    .find(|p| p.name == "rootUri")
+    .unwrap()
+    .optional = true;
 
   let names = Names::from_spec(&spec);
 
