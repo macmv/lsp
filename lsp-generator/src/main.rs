@@ -16,58 +16,9 @@ pub fn main() {
   generate_requests(&mut Generator::new("src/request.rs", &names), &spec.requests);
   generate_notifications(&mut Generator::new("src/notification.rs", &names), &spec.notifications);
 
-  let mut g = Generator::new("src/lib.rs", &names);
-  g.writeln("#![allow(rustdoc::redundant_explicit_links)]"); // explicit links are simpler
-  g.writeln("#![allow(deprecated)]"); // we need to use the deprecated types
-  g.writeln("");
+  let mut g = Generator::new("src/types.rs", &names);
   g.writeln("use serde::{Deserialize, Serialize, de, ser};");
   g.writeln("use std::{collections::HashMap, fmt};");
-  g.writeln("");
-  g.writeln("pub mod request;");
-  g.writeln("pub mod notification;");
-
-  g.writeln("");
-  g.writeln("#[derive(Serialize, Deserialize, Clone)]");
-  g.writeln("#[serde(untagged)]");
-  g.writeln("pub enum Or2<A, B> {");
-  g.writeln("A(A),");
-  g.writeln("B(B),");
-  g.writeln("}");
-  g.writeln("");
-  g.writeln("#[derive(Serialize, Deserialize, Clone)]");
-  g.writeln("#[serde(untagged)]");
-  g.writeln("pub enum Or3<A, B, C> {");
-  g.writeln("A(A),");
-  g.writeln("B(B),");
-  g.writeln("C(C),");
-  g.writeln("}");
-  g.writeln("");
-  g.writeln("#[derive(Serialize, Deserialize, Clone)]");
-  g.writeln("#[serde(untagged)]");
-  g.writeln("pub enum Or4<A, B, C, D> {");
-  g.writeln("A(A),");
-  g.writeln("B(B),");
-  g.writeln("C(C),");
-  g.writeln("D(D),");
-  g.writeln("}");
-  g.writeln("");
-  g.writeln("impl<A: Default, B> Default for Or2<A, B> {");
-  g.writeln("fn default() -> Self {");
-  g.writeln("Or2::A(A::default())");
-  g.writeln("}");
-  g.writeln("}");
-  g.writeln("");
-  g.writeln("impl<A: Default, B, C> Default for Or3<A, B, C> {");
-  g.writeln("fn default() -> Self {");
-  g.writeln("Or3::A(A::default())");
-  g.writeln("}");
-  g.writeln("}");
-  g.writeln("");
-  g.writeln("impl<A: Default, B, C, D> Default for Or4<A, B, C, D> {");
-  g.writeln("fn default() -> Self {");
-  g.writeln("Or4::A(A::default())");
-  g.writeln("}");
-  g.writeln("}");
 
   let structs =
     spec.structures.iter().map(|ty| (ty.name.as_str(), ty)).collect::<HashMap<&str, &Structure>>();
