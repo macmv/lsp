@@ -49,7 +49,7 @@ pub fn main() {
     for (name, ty) in types {
       write_derives(&mut g);
       g.writeln(format_args!("pub struct {} {{", name));
-      generate_struct_fields(&mut g, &ty.properties, None, &name, &structs, &[], &[]);
+      generate_struct_fields(&mut g, &ty.properties, None, true, &name, &structs, &[], &[]);
       g.writeln("}");
     }
   }
@@ -65,7 +65,7 @@ fn generate_struct(g: &mut Generator, ty: &Structure, structs: &HashMap<&str, &S
   write_derives(g);
   g.writeln(format_args!("pub struct {} {{", ty.name));
 
-  generate_struct_fields(g, &ty.properties, None, &ty.name, structs, &ty.mixins, &ty.extends);
+  generate_struct_fields(g, &ty.properties, None, true, &ty.name, structs, &ty.mixins, &ty.extends);
 
   g.writeln(format_args!("}}"));
 }
@@ -74,6 +74,7 @@ fn generate_struct_fields(
   g: &mut Generator,
   fields: &[Property],
   parent: Option<&[Property]>,
+  public: bool,
   struct_name: &str,
   structs: &HashMap<&str, &Structure>,
   mixins: &[Type],
@@ -96,7 +97,10 @@ fn generate_struct_fields(
     if field_name != field.name {
       g.writeln(format_args!("#[serde(rename = \"{}\")]", field.name));
     }
-    g.write(format_args!("pub {}: ", field_name));
+    if public {
+      g.write("pub ");
+    }
+    g.write(format_args!("{}: ", field_name));
 
     let mut name_hints = vec![];
 
@@ -149,7 +153,10 @@ fn generate_struct_fields(
 
   for mixin in mixins {
     g.writeln("#[serde(flatten)]");
-    g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(mixin))));
+    if public {
+      g.write("pub ");
+    }
+    g.writeln(format_args!("{}: ", to_snake_case(&variant_name(mixin))));
     write_type(g, &mixin, vec![]);
     g.writeln(",");
   }
@@ -161,6 +168,7 @@ fn generate_struct_fields(
         g,
         &mixin.properties,
         Some(fields),
+        public,
         struct_name,
         structs,
         &mixin.mixins,
@@ -168,7 +176,10 @@ fn generate_struct_fields(
       );
     } else {
       g.writeln("#[serde(flatten)]");
-      g.writeln(format_args!("pub {}: ", to_snake_case(&variant_name(extends))));
+      if public {
+        g.write("pub ");
+      }
+      g.writeln(format_args!("{}: ", to_snake_case(&variant_name(extends))));
       write_type(g, &extends, vec![]);
       g.writeln(",");
     }
@@ -179,53 +190,6 @@ fn should_inline(ty: &Type) -> Option<String> {
   match ty {
     Type::Reference { name } if name == "_InitializeParams" => Some(name.clone()),
     _ => None,
-  }
-}
-
-fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool, name_hint: &str) {
-  for prop in &lit.properties {
-    g.write_doc(&prop.documentation);
-
-    if prop.optional {
-      g.writeln("#[serde(skip_serializing_if = \"Option::is_none\")]");
-    }
-
-    let field_name = to_field_name(&prop.name);
-    if field_name != prop.name {
-      g.writeln(format_args!("#[serde(rename = \"{}\")]", prop.name));
-    }
-    if public {
-      g.write("pub ");
-    }
-    g.write(format_args!("{}: ", field_name));
-
-    let mut name_hints = vec![];
-
-    if name_hint == "AnonCompletionItemCapabilities" && prop.name == "tagSupport" {
-      name_hints.push("AnonCompletionItemTagSupportCapabilities".to_string());
-    } else {
-      name_hints.push(format!("{}{}", name_hint, to_pascal_case(&prop.name)));
-    }
-
-    name_hints.push(to_pascal_case(&prop.name));
-
-    if prop.optional {
-      if let Type::Or { items } = &prop.ty {
-        let mut items = items.clone();
-        if !items.iter().any(|item| item.is_null()) {
-          items.push(Type::Base { name: BaseType::Null });
-        }
-        write_type(g, &Type::Or { items }, name_hints);
-      } else {
-        g.write("Option<");
-        write_type(g, &prop.ty, name_hints);
-        g.write(">");
-      }
-    } else {
-      write_type(g, &prop.ty, name_hints);
-    }
-
-    g.writeln(",");
   }
 }
 
@@ -437,7 +401,16 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
           match it {
             Type::Literal { value } => {
               g.writeln("{");
-              generate_anon_struct_fields(g, value, false, &ty.name);
+              generate_struct_fields(
+                g,
+                &value.properties,
+                None,
+                false,
+                &ty.name,
+                &HashMap::new(),
+                &[],
+                &[],
+              );
               g.writeln("},");
             }
             _ => {
