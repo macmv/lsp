@@ -452,7 +452,7 @@ fn generate_requests(g: &mut Generator, requests: &[Request]) {
 
   for n in requests {
     g.write_doc(&n.documentation);
-    let name = to_pascal_case(&n.method);
+    let name = rpc_name(&n.method);
     g.writeln(format_args!("pub enum {name} {{}}"));
 
     g.writeln(format_args!("impl Request for {name} {{"));
@@ -484,7 +484,7 @@ fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
 
   for n in notifications {
     g.write_doc(&n.documentation);
-    let name = to_pascal_case(&n.method);
+    let name = rpc_name(&n.method);
     g.writeln(format_args!("pub enum {name} {{}}"));
 
     g.writeln(format_args!("impl Notification for {name} {{"));
@@ -630,6 +630,8 @@ fn to_pascal_case(method: &str) -> String {
 
   name.replace("UTF", "Utf")
 }
+
+fn rpc_name(method: &str) -> String { to_pascal_case(method) }
 
 fn anon_struct_name(value: &Literal) -> String {
   let name = value.properties.iter().map(|p| to_snake_case(&p.name)).collect::<Vec<_>>().join("_");

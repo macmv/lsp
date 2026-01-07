@@ -13,8 +13,8 @@ impl Names {
   pub fn from_spec(spec: &Spec) -> Self {
     let mut names = Names::default();
 
-    names.notification.extend(spec.notifications.iter().map(|n| crate::to_pascal_case(&n.method)));
-    names.request.extend(spec.notifications.iter().map(|r| crate::to_pascal_case(&r.method)));
+    names.notification.extend(spec.notifications.iter().map(|n| crate::rpc_name(&n.method)));
+    names.request.extend(spec.notifications.iter().map(|r| crate::rpc_name(&r.method)));
 
     names.root.extend(spec.structures.iter().map(|ty| ty.name.clone()));
     names.root.extend(spec.enumerations.iter().map(|ty| ty.name.clone()));
@@ -32,33 +32,33 @@ impl Names {
       format!("crate::{name}")
     } else {
       match name {
-        "CodeActionRequest" => "crate::CodeActionRequest",
-        "CodeLensRequest" => "crate::CodeLensRequest",
-        "CodeLensResolveRequest" => "crate::CodeLensResolveRequest",
-        "ColorPresentationRequest" => "crate::ColorPresentationRequest",
-        "CompletionRequest" => "crate::CompletionRequest",
-        "CompletionResolveRequest" => "crate::CompletionResolveRequest",
-        "DefinitionRequest" => "crate::DefinitionRequest",
-        "DocumentColorRequest" => "crate::request::DocumentColor",
-        "DocumentFormattingRequest" => "crate::DocumentFormattingRequest",
-        "DocumentHighlightRequest" => "crate::DocumentHighlightRequest",
-        "DocumentLinkRequest" => "crate::DocumentLinkRequest",
-        "DocumentOnTypeFormattingRequest" => "crate::DocumentOnTypeFormattingRequest",
-        "DocumentRangeFormattingRequest" => "crate::DocumentRangeFormattingRequest",
-        "DocumentRangesFormattingRequest" => "crate::DocumentRangesFormattingRequest",
-        "DocumentSymbolRequest" => "crate::DocumentSymbolRequest",
-        "ExecuteCommandRequest" => "crate::ExecuteCommandRequest",
-        "FoldingRangeList" => "FoldingRange",
-        "FoldingRangeRequest" => "crate::FoldingRangeRequest",
-        "HoverRequest" => "crate::HoverRequest",
+        "CodeActionRequest" => "crate::request::TextDocumentCodeAction",
+        "CodeLensRequest" => "crate::request::TextDocumentCodeLens",
+        "CodeLensResolveRequest" => "crate::request::CodeLensResolve",
+        "ColorPresentationRequest" => "crate::request::TextDocumentColorPresentation",
+        "CompletionRequest" => "crate::request::TextDocumentCompletion",
+        "CompletionResolveRequest" => "crate::request::CompletionItemResolve",
+        "DefinitionRequest" => "crate::request::TextDocumentDefinition",
+        "DocumentColorRequest" => "crate::request::TextDocumentDocumentColor",
+        "DocumentFormattingRequest" => "crate::request::TextDocumentFormatting",
+        "DocumentHighlightRequest" => "crate::request::TextDocumentDocumentHighlight",
+        "DocumentLinkRequest" => "crate::request::TextDocumentDocumentLink",
+        "DocumentOnTypeFormattingRequest" => "crate::request::TextDocumentOnTypeFormatting",
+        "DocumentRangeFormattingRequest" => "crate::request::TextDocumentRangeFormatting",
+        "DocumentRangesFormattingRequest" => "crate::request::TextDocumentRangesFormatting",
+        "DocumentSymbolRequest" => "crate::request::TextDocumentDocumentSymbol",
+        "ExecuteCommandRequest" => "crate::request::WorkspaceExecuteCommand",
+        "FoldingRangeList" => "crate::FoldingRange",
+        "FoldingRangeRequest" => "crate::request::TextDocumentFoldingRange",
+        "HoverRequest" => "crate::request::TextDocumentHover",
         "InlayHintsParams" => "InlayHintParams",
         "InlineCompletion" => "InlineCompletionItem",
-        "ReferencesRequest" => "crate::ReferencesRequest",
-        "RenameRequest" => "crate::RenameRequest",
-        "ResponseError" => "crate::ResponseError",
-        "SignatureHelpRequest" => "crate::SignatureHelpRequest",
+        "ReferencesRequest" => "crate::request::TextDocumentReferences",
+        "RenameRequest" => "crate::request::TextDocumentRename",
+        "ResponseError" => "",
+        "SignatureHelpRequest" => "crate::request::TextDocumentSignatureHelp",
         "TextDocumentPosition" => "TextDocumentPositionParams",
-        "WorkspaceSymbolRequest" => "crate::WorkspaceSymbolRequest",
+        "WorkspaceSymbolRequest" => "crate::request::WorkspaceSymbol",
 
         s if s.starts_with("CallHierarchyIncomingCall") => "crate::CallHierarchyIncomingCall",
         s if s.starts_with("CallHierarchyItem") => "crate::CallHierarchyItem",
@@ -68,9 +68,9 @@ impl Names {
         s if s.starts_with("CompletionItem") => "crate::CompletionItem",
         s if s.starts_with("DocumentHighlightKind") => "crate::DocumentHighlightKind",
         s if s.starts_with("InlineCompletionItem") => "crate::InlineCompletionItem",
-        s if s.starts_with("TextDocument") => "crate::TextDocument",
+        s if s.starts_with("TextDocument") => "crate::TextDocumentIdentifier",
         s if s.starts_with("TypeHierarchyItem") => "crate::TypeHierarchyItem",
-        s if s.starts_with("Uri") => "crate::Uri",
+        s if s.starts_with("Uri") => "String", // TODO: Uri type.
 
         _ => panic!("unresolved name: {name}"),
       }
