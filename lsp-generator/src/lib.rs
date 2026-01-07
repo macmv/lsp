@@ -282,7 +282,12 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
     Type::Or { items } => {
       let mut items = items.clone();
       // TextDocumentFilter and NotebookDocumentFilter have utter nonsense schema.
-      items.dedup();
+      items.dedup_by(|a, b| match (a, b) {
+        (Type::Literal { value: a }, Type::Literal { value: b }) => {
+          a.properties.iter().map(|p| &p.name).eq(b.properties.iter().map(|p| &p.name))
+        }
+        _ => false,
+      });
 
       if items.len() == 1 {
         g.writeln(format_args!("pub type {} = ", ty.name));
