@@ -8,7 +8,7 @@ mod generator;
 mod names;
 mod spec;
 
-pub fn generate() {
+pub fn main() {
   let spec = ureq::get(URL).call().unwrap().into_body().read_json::<Spec>().unwrap();
 
   let names = Names::from_spec(&spec);
