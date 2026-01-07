@@ -23,7 +23,7 @@ pub struct Generator<'a> {
 
 const LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\}").unwrap());
 const LINK_NAMED_REGEX: LazyLock<Regex> =
-  LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\s(.+)\}").unwrap());
+  LazyLock::new(|| Regex::new(r"\{@link\s+(\S+)\s([^}]+)\}").unwrap());
 
 impl<'a> Generator<'a> {
   pub fn new(path: impl AsRef<Path>, names: &'a Names) -> Self {
