@@ -1,4 +1,5 @@
 use std::{
+  fmt::Write,
   path::{Path, PathBuf},
   process::Command,
 };
@@ -13,8 +14,11 @@ impl Generator {
     Generator { output: String::new(), path: path.as_ref().to_path_buf() }
   }
 
-  pub fn write_comment(&mut self, comment: &str) {
-    self.output.push_str(&format!("// {}\n", comment));
+  pub fn write(&mut self, text: &str) { writeln!(self.output, "{text}").unwrap(); }
+  pub fn write_doc(&mut self, doc: &str) {
+    for line in doc.lines() {
+      writeln!(self.output, "/// {line}").unwrap();
+    }
   }
 }
 
@@ -23,6 +27,11 @@ impl Drop for Generator {
     std::fs::write(&self.path, &self.output).unwrap();
 
     let cmd = Command::new("rustfmt").arg(&self.path).output().unwrap();
-    assert!(cmd.status.success());
+    if !cmd.status.success() {
+      println!("rustfmt failed.\n");
+      println!("{}", String::from_utf8_lossy(&cmd.stderr));
+
+      panic!();
+    }
   }
 }
