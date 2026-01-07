@@ -64,6 +64,7 @@ impl Names {
         s if s.starts_with("CallHierarchyItem") => "crate::CallHierarchyItem",
         s if s.starts_with("CallHierarchyItemProvider") => "crate::CallHierarchyItemProvider",
         s if s.starts_with("CallHierarchyOutgoingCall") => "crate::CallHierarchyOutgoingCall",
+        s if s.starts_with("CodeActionProvider") => "crate::request::TextDocumentCodeAction",
         s if s.starts_with("ColorPresentation") => "crate::ColorPresentation",
         s if s.starts_with("CompletionItem") => "crate::CompletionItem",
         s if s.starts_with("DocumentHighlightKind") => "crate::DocumentHighlightKind",
