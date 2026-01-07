@@ -33,6 +33,7 @@ pub fn generate() {
     let types = g.drain_types();
 
     for (name, ty) in types {
+      g.writeln("#[derive(Serialize, Deserialize)]");
       g.writeln(format_args!("pub struct {} {{", name));
       for prop in &ty.properties {
         g.write_doc(&prop.documentation);
