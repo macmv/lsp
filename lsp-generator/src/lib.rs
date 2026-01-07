@@ -8,10 +8,55 @@ mod spec;
 pub fn generate() {
   let spec = ureq::get(URL).call().unwrap().into_body().read_json::<Spec>().unwrap();
 
+  generate_requests(&mut Generator::new("src/request.rs"), &spec.requests);
   generate_notifications(&mut Generator::new("src/notification.rs"), &spec.notifications);
 
   let mut g = Generator::new("src/lib.rs");
+  g.writeln("use serde::{Serialize, Deserialize};");
+  g.writeln("");
+  g.writeln("pub mod request;");
   g.writeln("pub mod notification;");
+
+  g.writeln("");
+  g.writeln("#[derive(Serialize, Deserialize)]");
+  g.writeln("#[serde(untagged)]");
+  g.writeln("pub enum Or<A, B> {");
+  g.writeln("A(A),");
+  g.writeln("B(B),");
+  g.writeln("}");
+}
+
+fn generate_requests(g: &mut Generator, requests: &[Request]) {
+  g.writeln("//! LSP Requests.");
+  g.writeln("");
+  g.writeln("use super::*;");
+  g.writeln("");
+
+  g.writeln("pub trait Request {");
+  g.writeln("const METHOD: &'static str;");
+  g.writeln("type Params;");
+  g.writeln("type Result;");
+  g.writeln("}");
+  g.writeln("");
+
+  for n in requests {
+    g.write_doc(&n.documentation);
+    let name = notification_name(&n.method);
+    g.writeln(format_args!("pub enum {name} {{}}"));
+
+    g.writeln(format_args!("impl Request for {name} {{"));
+    g.writeln(format_args!("const METHOD: &'static str = \"{}\";", n.method));
+
+    g.write(format_args!("type Params ="));
+    write_type(g, &n.params.as_ref().unwrap_or(&Type::Base { name: "null".into() }));
+    g.writeln(format_args!(";"));
+
+    g.write(format_args!("type Result ="));
+    write_type(g, &n.result);
+    g.writeln(format_args!(";"));
+
+    g.writeln(format_args!("}}"));
+  }
 }
 
 fn generate_notifications(g: &mut Generator, notifications: &[Notification]) {
@@ -50,12 +95,39 @@ fn write_type(g: &mut Generator, ty: &Type) {
     Type::Reference { name } => g.write(name),
 
     Type::Or { items } => {
-      for (i, item) in items.iter().enumerate() {
-        if i != 0 {
-          g.write(" | ");
+      if items.len() == 1 {
+        write_type(g, &items[0]);
+      } else if items.iter().any(|item| item == &Type::Base { name: "null".into() }) {
+        g.write("Option<");
+        write_type(
+          g,
+          &Type::Or {
+            items: items
+              .iter()
+              .filter(|item| *item != &Type::Base { name: "null".into() })
+              .cloned()
+              .collect(),
+          },
+        );
+        g.write(">");
+      } else if items.len() == 2 {
+        g.write("Or<");
+        for (i, item) in items.iter().enumerate() {
+          if i != 0 {
+            g.write(", ");
+          }
+          write_type(g, item);
         }
-        write_type(g, item);
+        g.write(">");
+      } else {
+        panic!("unhandled or {items:?}");
       }
+    }
+
+    Type::Array { element } => {
+      g.write("Vec<");
+      write_type(g, element);
+      g.write(">");
     }
 
     _ => {

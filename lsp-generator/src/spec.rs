@@ -107,7 +107,7 @@ pub enum MessageDirection {
   Both,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Property {
   pub name:          String,
@@ -117,20 +117,20 @@ pub struct Property {
   pub ty:            Type,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Type {
   Base { name: String },
+  Reference { name: String },
   Or { items: Vec<Type> },
   Literal { value: Literal },
   StringLiteral { value: String },
-  Reference { name: String },
   Map { key: Box<Type>, value: Box<Type> },
   Array { element: Box<Type> },
   Tuple { items: Vec<Type> },
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Literal {
   pub properties: Vec<Property>,

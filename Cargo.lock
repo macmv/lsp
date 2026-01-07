@@ -314,6 +314,7 @@ name = "lsp"
 version = "0.1.0"
 dependencies = [
  "lsp-generator",
+ "serde",
  "serde_json",
 ]
 
