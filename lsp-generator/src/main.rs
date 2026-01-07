@@ -47,7 +47,7 @@ pub fn main() {
     let types = g.drain_types();
 
     for (name, ty) in types {
-      g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
+      write_derives(&mut g);
       g.writeln(format_args!("pub struct {} {{", name));
       generate_anon_struct_fields(&mut g, &ty, true, &name);
       g.writeln("}");
@@ -55,10 +55,14 @@ pub fn main() {
   }
 }
 
+fn write_derives(g: &mut Generator) {
+  g.writeln("#[derive(Debug, Default, Clone, Serialize, Deserialize)]");
+}
+
 fn generate_struct(g: &mut Generator, ty: &Structure, structs: &HashMap<&str, &Structure>) {
   g.writeln("");
   g.write_doc(&ty.documentation);
-  g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
+  write_derives(g);
   g.writeln(format_args!("pub struct {} {{", ty.name));
 
   generate_struct_fields(g, ty, None, structs);
@@ -205,11 +209,11 @@ fn generate_enum(g: &mut Generator, ty: &Enumeration) {
   g.write_doc(&ty.documentation);
   match ty.ty {
     Type::Base { name: BaseType::String } => {
-      g.writeln("#[derive(Serialize, Deserialize, Default, Clone)]");
+      write_derives(g);
       g.writeln("#[serde(untagged)]");
     }
     Type::Base { name: BaseType::Integer | BaseType::Uinteger } => {
-      g.writeln("#[derive(Clone, Copy, Default)]");
+      g.writeln("#[derive(Debug, Default, Clone, Copy)]");
     }
 
     _ => panic!("invalid enum type: {:#?}", ty.ty),
@@ -399,7 +403,7 @@ fn generate_type_alias(g: &mut Generator, ty: &TypeAlias) {
         write_type(g, &items[0], vec![ty.name.clone()]);
         g.writeln(";");
       } else {
-        g.writeln("#[derive(Serialize, Deserialize, Clone)]");
+        g.writeln("#[derive(Debug, Clone, Serialize, Deserialize)]");
         g.writeln("#[serde(untagged)]");
         g.writeln(format_args!("pub enum {} {{", ty.name));
         for it in &items {

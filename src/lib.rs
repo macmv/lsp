@@ -25,14 +25,14 @@ pub use types::*;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Or2<A, B> {
   A(A),
   B(B),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Or3<A, B, C> {
   A(A),
@@ -40,7 +40,7 @@ pub enum Or3<A, B, C> {
   C(C),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Or4<A, B, C, D> {
   A(A),
