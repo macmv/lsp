@@ -80,15 +80,11 @@ fn generate_struct_fields(
     }
 
     g.write_doc(&field.documentation);
-    if field.name == "type" {
-      g.writeln("#[serde(rename = \"type\")]");
-      g.write("pub ty: ");
-    } else {
-      if to_snake_case(&field.name) != field.name {
-        g.writeln(format_args!("#[serde(rename = \"{}\")]", field.name));
-      }
-      g.write(format_args!("pub {}: ", to_snake_case(&field.name)));
+    let field_name = to_field_name(&field.name);
+    if field_name != field.name {
+      g.writeln(format_args!("#[serde(rename = \"{}\")]", field.name));
     }
+    g.write(format_args!("pub {}: ", field_name));
 
     let mut name_hints = vec![];
 
@@ -165,21 +161,14 @@ fn should_inline(ty: &Type) -> Option<String> {
 fn generate_anon_struct_fields(g: &mut Generator, lit: &Literal, public: bool, name_hint: &str) {
   for prop in &lit.properties {
     g.write_doc(&prop.documentation);
-    if prop.name == "type" {
-      g.writeln("#[serde(rename = \"type\")]");
-      if public {
-        g.write("pub ");
-      }
-      g.write("ty: ");
-    } else {
-      if to_snake_case(&prop.name) != prop.name {
-        g.writeln(format_args!("#[serde(rename = \"{}\")]", prop.name));
-      }
-      if public {
-        g.write("pub ");
-      }
-      g.write(format_args!("{}: ", to_snake_case(&prop.name)));
+    let field_name = to_field_name(&prop.name);
+    if field_name != prop.name {
+      g.writeln(format_args!("#[serde(rename = \"{}\")]", prop.name));
     }
+    if public {
+      g.write("pub ");
+    }
+    g.write(format_args!("{}: ", field_name));
 
     let mut name_hints = vec![];
 
@@ -660,6 +649,10 @@ fn write_type(g: &mut Generator, ty: &Type, name_hint: Vec<String>) {
       }
     }
   }
+}
+
+fn to_field_name(field: &str) -> String {
+  if field == "type" { "ty".into() } else { to_snake_case(field) }
 }
 
 fn to_snake_case(name: &str) -> String {
