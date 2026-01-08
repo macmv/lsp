@@ -11,7 +11,7 @@ documentation = "https://docs.rs/lsp"
 readme = "README.md"
 include = ["src/*.rs", "src/lsp_version.txt"]
 
-keywords = ["lsp", "protocol", "language-server", "language-server-protocol"]
+keywords = ["lsp", "protocol", "language-server"]
 categories = ["api-bindings", "development-tools", "text-editors"]
 
 [workspace]
