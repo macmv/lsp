@@ -85,4 +85,25 @@ mod tests {
       r#"["utf-8","utf-16","foo"]"# as Vec<PositionEncodingKind>
     );
   }
+
+  #[test]
+  fn or2_works() {
+    assert_serde!(
+      &TextDocumentSyncOptions { save: Some(Or2::A(true)), ..Default::default() },
+      r#"{"save":true}"# as TextDocumentSyncOptions
+    );
+
+    assert_serde!(
+      &TextDocumentSyncOptions { save: Some(Or2::B(SaveOptions::default())), ..Default::default() },
+      r#"{"save":{}}"# as TextDocumentSyncOptions
+    );
+
+    assert_serde!(
+      &TextDocumentSyncOptions {
+        save: Some(Or2::B(SaveOptions { include_text: Some(true), ..Default::default() })),
+        ..Default::default()
+      },
+      r#"{"save":{"includeText":true}}"# as TextDocumentSyncOptions
+    );
+  }
 }
