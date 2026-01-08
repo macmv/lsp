@@ -68,6 +68,11 @@ pub fn main() {
   }
 
   for ty in &spec.type_aliases {
+    match ty.name.as_str() {
+      "LSPAny" | "LSPArray" => continue,
+      _ => {}
+    }
+
     lsp.generate_type_alias(&mut g, ty);
   }
 
