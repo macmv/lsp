@@ -478,14 +478,10 @@ impl LspGenerator<'_> {
     g.writeln("}");
 
     if ty.supports_custom_values {
-      g.writeln(format_args!(
-        "let n = deserializer.deserialize_{}(Visitor)?;",
-        to_snake_case(base_owned)
-      ));
+      g.writeln(format_args!("deserializer.deserialize_{}(Visitor)", to_snake_case(base_owned)));
     } else {
-      g.writeln(format_args!("let n = deserializer.deserialize_{base}(Visitor)?;",));
+      g.writeln(format_args!("deserializer.deserialize_{base}(Visitor)",));
     }
-    g.writeln("Ok(Self::from(n))");
 
     g.writeln("}");
     g.writeln("}");
