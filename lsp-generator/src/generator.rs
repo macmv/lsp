@@ -89,7 +89,7 @@ impl<'a> Generator<'a> {
   }
 
   pub fn has_types(&self) -> bool { !self.types.is_empty() }
-  pub fn contains_type(&self, name: &str) -> bool { self.type_map.contains_key(name) }
+  pub fn get_type(&self, name: &str) -> Option<&AnonType> { self.type_map.get(name) }
   pub fn declare_type(&mut self, name: String) { self.type_map.insert(name, AnonType::Defined); }
   pub fn add_type(&mut self, name: String, ty: AnonType) {
     if let Some(prev) = self.type_map.insert(name.clone(), ty.clone()) {

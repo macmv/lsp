@@ -767,16 +767,26 @@ impl LspGenerator<'_> {
         if value.properties.is_empty() {
           self.write_type(g, &Type::Base { name: BaseType::Null }, name_hint);
         } else {
-          let mut name = match name_hint
-            .iter()
-            .find_map(|name| if !g.contains_type(&name) { Some(name.clone()) } else { None })
-          {
+          let mut name = match name_hint.iter().find_map(|name| {
+            if let Some(ty) = g.get_type(name) {
+              if matches!(ty, AnonType::Literal(existing) if existing == value) {
+                Some(name.clone())
+              } else {
+                None
+              }
+            } else {
+              Some(name.clone())
+            }
+          }) {
             Some(name) => name,
             None if name_hint.is_empty() => anon_struct_name(&value),
             None => name_hint[0].clone(),
           };
 
-          while g.contains_type(&name) {
+          while let Some(ty) = g.get_type(&name) {
+            if matches!(ty, AnonType::Literal(existing) if existing == value) {
+              break;
+            }
             name.push('_');
           }
 
