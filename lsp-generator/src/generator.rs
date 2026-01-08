@@ -27,6 +27,7 @@ const LINK_NAMED_REGEX: LazyLock<Regex> =
 const SAMPLE_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"\n@sample ([^`]+)`([^`]+)`").unwrap());
 const TYPESCRIPT_CODE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"```ts").unwrap());
+const ZERO_WIDTH_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\u{200b}").unwrap());
 
 impl<'a> Generator<'a> {
   pub fn new(path: impl AsRef<Path>, names: &'a Names) -> Self {
@@ -78,6 +79,7 @@ impl<'a> Generator<'a> {
       )
     });
     let doc = TYPESCRIPT_CODE_REGEX.replace_all(&doc, |_: &regex::Captures| "\n```ts");
+    let doc = ZERO_WIDTH_REGEX.replace_all(&doc, |_: &regex::Captures| "");
 
     for line in doc.lines() {
       writeln!(self.output, "/// {line}").unwrap();
