@@ -3,6 +3,13 @@ name = "lsp"
 version = "0.1.0"
 edition = "2024"
 
+license = "MIT OR Apache-2.0"
+description = "Language Server Protocol"
+homepage = "https://github.com/macmv/lsp"
+repository = "https://github.com/macmv/lsp"
+readme = "README.md"
+include = ["src/*.rs", "src/lsp_version.txt"]
+
 [workspace]
 members = ["lsp-generator"]
 
