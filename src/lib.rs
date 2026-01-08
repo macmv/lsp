@@ -61,6 +61,15 @@ impl<A: Default, B, C, D> Default for Or4<A, B, C, D> {
   fn default() -> Self { Or4::A(A::default()) }
 }
 
+#[derive(serde::Deserialize)]
+#[serde(tag = "kind")]
+#[serde(rename_all = "camelCase")]
+pub enum WorkDoneProgress {
+  Begin(WorkDoneProgressBegin),
+  Report(WorkDoneProgressReport),
+  End(WorkDoneProgressEnd),
+}
+
 #[cfg(test)]
 mod tests {
   use serde::de::DeserializeOwned;
