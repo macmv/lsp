@@ -9,8 +9,23 @@ use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, percent_encode};
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct Uri(pub String);
 
-const FILE_PATH_ENCODE_SET: &AsciiSet =
-  &CONTROLS.add(b' ').add(b'#').add(b'?').add(b'%').add(b'[').add(b']').add(b'/');
+const FILE_PATH_ENCODE_SET: &AsciiSet = &CONTROLS
+  .add(b' ')
+  .add(b'"')
+  .add(b'#')
+  .add(b'%')
+  .add(b'/')
+  .add(b'<')
+  .add(b'>')
+  .add(b'?')
+  .add(b'[')
+  .add(b'\\')
+  .add(b']')
+  .add(b'^')
+  .add(b'`')
+  .add(b'{')
+  .add(b'|')
+  .add(b'}');
 
 impl serde::Serialize for Uri {
   fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
