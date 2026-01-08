@@ -25,6 +25,13 @@ pub use types::*;
 
 use serde::{Deserialize, Serialize};
 
+/// Represents a union of two types. The first variant will take priority when
+/// deserializing (using `#[serde(untagged)]` behavior). Additionally, the first
+/// variant is the default.
+///
+/// This relies on the LSP spec putting the "default" variant first. Ordering is
+/// maintained between unions in the LSP spec and the order of generic arguments
+/// in generated code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Or2<A, B> {
@@ -32,6 +39,13 @@ pub enum Or2<A, B> {
   B(B),
 }
 
+/// Represents a union of three types. The first variant will take priority when
+/// deserializing (using `#[serde(untagged)]` behavior). Additionally, the first
+/// variant is the default.
+///
+/// This relies on the LSP spec putting the "default" variant first. Ordering is
+/// maintained between unions in the LSP spec and the order of generic arguments
+/// in generated code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Or3<A, B, C> {
