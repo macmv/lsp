@@ -7,6 +7,6 @@ edition = "2024"
 members = ["lsp-generator"]
 
 [dependencies]
+percent-encoding = "2.3.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-uriparse = "0.6.4"

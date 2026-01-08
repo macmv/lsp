@@ -24,7 +24,7 @@ mod types;
 pub use types::*;
 
 mod uri;
-pub use uri::{Uri, UriError};
+pub use uri::Uri;
 
 use serde::{Deserialize, Serialize};
 
