@@ -506,9 +506,16 @@ impl LspGenerator<'_> {
         });
 
         if items.len() == 1 {
-          g.writeln(format_args!("pub type {} = ", ty.name));
-          self.write_type(g, &items[0], vec![ty.name.clone()]);
-          g.writeln(";");
+          match &items[0] {
+            Type::Literal { value } => {
+              write_derives(g);
+              g.writeln(format_args!("pub struct {} {{", ty.name));
+              self.generate_struct_fields(g, &value.properties, None, false, &ty.name, &[], &[]);
+              g.writeln("}");
+            }
+
+            ty => panic!("unhandled type alias: {ty:?}"),
+          }
         } else {
           g.writeln("#[derive(Debug, Clone, Serialize, Deserialize)]");
           g.writeln("#[serde(untagged)]");
