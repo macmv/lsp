@@ -56,7 +56,7 @@ pub fn main() {
       continue;
     }
 
-    lsp.generate_struct(&mut g, ty, &structs);
+    lsp.generate_struct(&mut g, ty);
   }
 
   for ty in &spec.enumerations {
@@ -73,7 +73,7 @@ pub fn main() {
     for (name, ty) in types {
       write_derives(&mut g);
       g.writeln(format_args!("pub struct {} {{", name));
-      lsp.generate_struct_fields(&mut g, &ty.properties, None, true, &name, &structs, &[], &[]);
+      lsp.generate_struct_fields(&mut g, &ty.properties, None, true, &name, &[], &[]);
       g.writeln("}");
     }
   }
@@ -84,27 +84,13 @@ fn write_derives(g: &mut Generator) {
 }
 
 impl LspGenerator<'_> {
-  fn generate_struct(
-    &self,
-    g: &mut Generator,
-    ty: &Structure,
-    structs: &HashMap<&str, &Structure>,
-  ) {
+  fn generate_struct(&self, g: &mut Generator, ty: &Structure) {
     g.writeln("");
     g.write_doc(&ty.documentation);
     write_derives(g);
     g.writeln(format_args!("pub struct {} {{", ty.name));
 
-    self.generate_struct_fields(
-      g,
-      &ty.properties,
-      None,
-      true,
-      &ty.name,
-      structs,
-      &ty.mixins,
-      &ty.extends,
-    );
+    self.generate_struct_fields(g, &ty.properties, None, true, &ty.name, &ty.mixins, &ty.extends);
 
     g.writeln(format_args!("}}"));
   }
@@ -116,7 +102,6 @@ impl LspGenerator<'_> {
     parent: Option<&[Property]>,
     public: bool,
     struct_name: &str,
-    structs: &HashMap<&str, &Structure>,
     mixins: &[Type],
     extends: &[Type],
   ) {
@@ -209,14 +194,13 @@ impl LspGenerator<'_> {
 
     for extends in extends {
       if let Some(name) = self.should_inline(&extends) {
-        let Some(mixin) = structs.get(name.as_str()) else { panic!("mixin not found") };
+        let Some(mixin) = self.structs.get(name.as_str()) else { panic!("mixin not found") };
         self.generate_struct_fields(
           g,
           &mixin.properties,
           Some(fields),
           public,
           struct_name,
-          structs,
           &mixin.mixins,
           &mixin.extends,
         );
@@ -489,16 +473,7 @@ impl LspGenerator<'_> {
             match it {
               Type::Literal { value } => {
                 g.writeln("{");
-                self.generate_struct_fields(
-                  g,
-                  &value.properties,
-                  None,
-                  false,
-                  &ty.name,
-                  &HashMap::new(),
-                  &[],
-                  &[],
-                );
+                self.generate_struct_fields(g, &value.properties, None, false, &ty.name, &[], &[]);
                 g.writeln("},");
               }
               _ => {
