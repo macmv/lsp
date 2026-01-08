@@ -105,6 +105,12 @@ mod tests {
   }
 
   #[test]
+  fn empty_caps_works() {
+    assert_serde!(&ClientCapabilities::default(), r#"{}"# as ClientCapabilities);
+    assert_serde!(&ServerCapabilities::default(), r#"{}"# as ServerCapabilities);
+  }
+
+  #[test]
   fn or2_works() {
     assert_serde!(
       &TextDocumentSyncOptions { save: Some(Or2::A(true)), ..Default::default() },
