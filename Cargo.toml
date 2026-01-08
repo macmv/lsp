@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 description = "Language Server Protocol"
 homepage = "https://github.com/macmv/lsp"
 repository = "https://github.com/macmv/lsp"
+documentation = "https://docs.rs/lsp"
 readme = "README.md"
 include = ["src/*.rs", "src/lsp_version.txt"]
 
