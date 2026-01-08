@@ -9,9 +9,7 @@ mod names;
 mod spec;
 
 struct LspGenerator<'a> {
-  spec:    &'a Spec,
   structs: &'a HashMap<&'a str, &'a Structure>,
-  names:   &'a Names,
 }
 
 pub fn main() {
@@ -37,7 +35,7 @@ pub fn main() {
   let structs =
     spec.structures.iter().map(|ty| (ty.name.as_str(), ty)).collect::<HashMap<&str, &Structure>>();
 
-  let lsp = LspGenerator { spec: &spec, structs: &structs, names: &names };
+  let lsp = LspGenerator { structs: &structs };
 
   lsp.generate_requests(&mut Generator::new("src/request.rs", &names), &spec.requests);
   lsp.generate_notifications(
