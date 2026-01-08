@@ -646,7 +646,7 @@ impl LspGenerator<'_> {
         BaseType::DocumentUri => g.write("Uri"),
         BaseType::Uri => g.write("Uri"),
       },
-      Type::Reference { name } if name == "LSPAny" => g.write("serde_json::Value"),
+      Type::Reference { name } if name == "LSPAny" => g.write("Value"),
       Type::Reference { name } => g.write(name),
 
       Type::Or { items } => {

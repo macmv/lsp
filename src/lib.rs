@@ -7,6 +7,11 @@
 //! This crate uses [`serde`] for all encodable types, and a custom [`Uri`] type
 //! for URIs.
 //!
+//! # Features
+//!
+//! - `raw_value` - Use [`serde_json::value::RawValue`] for `LSPAny` instead of
+//!   [`serde_json::Value`].
+//!
 //! # Version
 //!
 //! Almost all types in this crate are generated from the [LSP
@@ -26,6 +31,11 @@ pub use types::*;
 
 mod uri;
 pub use uri::Uri;
+
+#[cfg(not(feature = "raw_value"))]
+type Value = serde_json::Value;
+#[cfg(feature = "raw_value")]
+type Value = Box<serde_json::value::RawValue>;
 
 use serde::{Deserialize, Serialize};
 
