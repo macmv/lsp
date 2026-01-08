@@ -40,25 +40,12 @@ pub enum Or3<A, B, C> {
   C(C),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Or4<A, B, C, D> {
-  A(A),
-  B(B),
-  C(C),
-  D(D),
-}
-
 impl<A: Default, B> Default for Or2<A, B> {
   fn default() -> Self { Or2::A(A::default()) }
 }
 
 impl<A: Default, B, C> Default for Or3<A, B, C> {
   fn default() -> Self { Or3::A(A::default()) }
-}
-
-impl<A: Default, B, C, D> Default for Or4<A, B, C, D> {
-  fn default() -> Self { Or4::A(A::default()) }
 }
 
 #[derive(serde::Deserialize)]
