@@ -23,6 +23,9 @@ pub mod request;
 mod types;
 pub use types::*;
 
+mod uri;
+pub use uri::{Uri, UriError};
+
 use serde::{Deserialize, Serialize};
 
 /// Represents a union of two types. The first variant will take priority when
