@@ -4,7 +4,8 @@
 //! It makes no assumptions about the transport layer (e.g. TCP, Unix sockets,
 //! etc.), or if the consumer is a client or server.
 //!
-//! This crate uses [`serde`] for all encodable types.
+//! This crate uses [`serde`] for all encodable types, and a custom [`Uri`] type
+//! for URIs.
 //!
 //! # Version
 //!
