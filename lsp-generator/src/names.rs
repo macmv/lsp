@@ -4,9 +4,9 @@ use crate::spec::Spec;
 
 #[derive(Default)]
 pub struct Names {
-  root:         HashSet<String>,
-  notification: HashSet<String>,
-  request:      HashSet<String>,
+  pub root:         HashSet<String>,
+  pub notification: HashSet<String>,
+  pub request:      HashSet<String>,
 }
 
 impl Names {

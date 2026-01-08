@@ -16,6 +16,7 @@ struct LspGenerator<'a> {
 enum AnonType {
   Literal(Literal),
   Enum(Vec<Type>),
+  Defined,
 }
 
 pub fn main() {
@@ -50,6 +51,10 @@ pub fn main() {
   );
 
   let mut g = Generator::new("src/types.rs", &names);
+  for ty in names.root.iter() {
+    g.declare_type(ty.clone());
+  }
+
   g.writeln("use serde::{Deserialize, Serialize, de, ser};");
   g.writeln("use std::{collections::HashMap, fmt};");
   g.writeln("");
@@ -120,6 +125,7 @@ pub fn main() {
           }
           g.writeln("}");
         }
+        AnonType::Defined => unreachable!("declared types should not be added"),
       }
     }
   }
@@ -188,8 +194,8 @@ impl LspGenerator<'_> {
         name_hints.push("PublishDiagnosticsTagSupportCapabilities".to_string());
       } else if struct_name == "WorkspaceSymbolClientCapabilities" && field.name == "tagSupport" {
         name_hints.push("WorkspaceSymbolTagSupportCapabilities".to_string());
-      } else if struct_name == "AnonCompletionItemCapabilities" && field.name == "tagSupport" {
-        name_hints.push("AnonCompletionItemTagSupportCapabilities".to_string());
+      } else if struct_name == "CompletionItemCapabilities" && field.name == "tagSupport" {
+        name_hints.push("CompletionItemTagSupportCapabilities".to_string());
       } else if struct_name == "InlayHintClientCapabilities" && field.name == "resolveSupport" {
         name_hints.push("InlayHintResolveSupportCapabilities".to_string());
       } else if struct_name == "CodeActionClientCapabilities" && field.name == "resolveSupport" {
@@ -761,13 +767,13 @@ impl LspGenerator<'_> {
         if value.properties.is_empty() {
           self.write_type(g, &Type::Base { name: BaseType::Null }, name_hint);
         } else {
-          let mut name = match name_hint.iter().find_map(|n| {
-            let name = if n.starts_with("Anon") { n.clone() } else { format!("Anon{n}") };
-            if !g.contains_type(&name) { Some(name) } else { None }
-          }) {
+          let mut name = match name_hint
+            .iter()
+            .find_map(|name| if !g.contains_type(&name) { Some(name.clone()) } else { None })
+          {
             Some(name) => name,
             None if name_hint.is_empty() => anon_struct_name(&value),
-            None => format!("Anon{}", name_hint[0].clone()),
+            None => name_hint[0].clone(),
           };
 
           while g.contains_type(&name) {
@@ -851,7 +857,7 @@ fn anon_struct_name(value: &Literal) -> String {
     .map(|p| format!("{}_{}", to_snake_case(&p.name), to_snake_case(&variant_name(&p.ty))))
     .collect::<Vec<_>>()
     .join("_");
-  format!("Anon{}", to_pascal_case(&name))
+  to_pascal_case(&name)
 }
 
 #[cfg(test)]
