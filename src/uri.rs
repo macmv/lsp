@@ -90,6 +90,16 @@ impl Uri {
           buf.push(&path[..3]);
           path = &path[3..];
         }
+        Some(letter @ ('a'..='z' | 'A'..='Z'))
+          if path.chars().nth(1) == Some('%')
+            && path.chars().nth(2) == Some('3')
+            && path.chars().nth(3) == Some('A')
+            && path.chars().nth(4) == Some('/') =>
+        {
+          // This is a percent-encoded prefix.
+          buf.push(&format!("{letter}:/"));
+          path = &path[5..];
+        }
         _ => buf.push("/"),
       }
 
@@ -182,6 +192,16 @@ mod tests {
     // assume any path whose first component matches `[a-z]:` is a prefix.
     assert_eq!(
       Uri("file:///C:/foo/bar.txt".into()).to_file_path().unwrap(),
+      Path::new("C:/foo/bar.txt")
+    );
+  }
+
+  #[test]
+  fn to_path_handles_percent_prefix() {
+    // This is technically ambiguous. Because we want `Uri` to be portable, we
+    // assume any path whose first component matches `[a-z]:` is a prefix.
+    assert_eq!(
+      Uri("file:///C%3A/foo/bar.txt".into()).to_file_path().unwrap(),
       Path::new("C:/foo/bar.txt")
     );
   }
