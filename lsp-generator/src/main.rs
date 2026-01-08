@@ -12,6 +12,12 @@ struct LspGenerator<'a> {
   structs: &'a HashMap<&'a str, &'a Structure>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum AnonType {
+  Literal(Literal),
+  Enum(Vec<Type>),
+}
+
 pub fn main() {
   let mut spec = ureq::get(URL).call().unwrap().into_body().read_json::<Spec>().unwrap();
 
@@ -69,10 +75,47 @@ pub fn main() {
     let types = g.drain_types();
 
     for (name, ty) in types {
-      write_derives(&mut g);
-      g.writeln(format_args!("pub struct {} {{", name));
-      lsp.generate_struct_fields(&mut g, &ty.properties, None, true, &name, &[], &[]);
-      g.writeln("}");
+      match ty {
+        AnonType::Literal(lit) => {
+          write_derives(&mut g);
+          g.writeln(format_args!("pub struct {} {{", name));
+          lsp.generate_struct_fields(&mut g, &lit.properties, None, true, &name, &[], &[]);
+          g.writeln("}");
+        }
+        AnonType::Enum(tys) => {
+          g.writeln("#[derive(Debug, Clone, Serialize, Deserialize)]");
+          g.writeln("#[serde(tag = \"kind\")]");
+          g.writeln(format_args!("pub enum {} {{", name));
+          for ty in &tys {
+            match ty {
+              Type::Reference { name } => {
+                let kind = lsp
+                  .structs
+                  .get(name.as_str())
+                  .unwrap()
+                  .properties
+                  .iter()
+                  .find_map(|p| {
+                    if p.name != "kind" {
+                      return None;
+                    };
+
+                    match &p.ty {
+                      Type::StringLiteral { value } => Some(value),
+                      _ => None,
+                    }
+                  })
+                  .expect("no 'kind' field found on anonymous enum");
+
+                g.writeln(format_args!("#[serde(rename = \"{kind}\")]"));
+                g.writeln(format_args!("{}({}),", to_pascal_case(kind), name));
+              }
+              _ => panic!("disallowed anonymous enum type: {:#?}", ty),
+            }
+          }
+          g.writeln("}");
+        }
+      }
     }
   }
 }
@@ -603,7 +646,44 @@ impl LspGenerator<'_> {
           _ => false,
         });
 
-        if items.len() == 1 {
+        let needs_enum = items.iter().any(|it| match it {
+          Type::Reference { name } if name == "StringValue" => false,
+
+          Type::Reference { name } => {
+            let Some(s) = self.structs.get(name.as_str()) else { return false };
+            s.properties.iter().any(|p| matches!(p.ty, Type::StringLiteral { .. }))
+          }
+
+          _ => false,
+        });
+
+        if needs_enum {
+          let name = items
+            .iter()
+            .find_map(|it| match it {
+              Type::Reference { name } => match name.as_str() {
+                "FullDocumentDiagnosticReport" => Some("DocumentDiagnosticReportContents"),
+                "CreateFile" => Some("FileChangeContents"),
+                _ => None,
+              },
+              _ => None,
+            })
+            .unwrap_or_else(|| panic!("no enum name found for {items:#?}"));
+
+          let (variants, mut remaining): (Vec<_>, _) =
+            items.iter().cloned().partition(|it| match it {
+              Type::Reference { name } => {
+                let Some(s) = self.structs.get(name.as_str()) else { return false };
+                s.properties.iter().any(|p| matches!(p.ty, Type::StringLiteral { .. }))
+              }
+              _ => false,
+            });
+
+          g.add_type(name.to_string(), AnonType::Enum(variants));
+
+          remaining.push(Type::Reference { name: name.to_string() });
+          self.write_type(g, &Type::Or { items: remaining }, name_hint);
+        } else if items.len() == 1 {
           self.write_type(g, &items[0], name_hint);
         } else if items.iter().any(|item| item.is_null()) {
           g.write("Option<");
@@ -687,7 +767,7 @@ impl LspGenerator<'_> {
           }
 
           g.write(&name);
-          g.add_type(name, value.clone());
+          g.add_type(name, AnonType::Literal(value.clone()));
         }
       }
     }

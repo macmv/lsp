@@ -9,14 +9,14 @@ use std::{
 
 use regex::Regex;
 
-use crate::{names::Names, spec::Literal};
+use crate::{AnonType, names::Names};
 
 pub struct Generator<'a> {
   output: String,
   path:   PathBuf,
 
-  type_map: HashMap<String, Literal>,
-  types:    Vec<(String, Literal)>,
+  type_map: HashMap<String, AnonType>,
+  types:    Vec<(String, AnonType)>,
 
   names: &'a Names,
 }
@@ -88,7 +88,7 @@ impl<'a> Generator<'a> {
 
   pub fn has_types(&self) -> bool { !self.types.is_empty() }
   pub fn contains_type(&self, name: &str) -> bool { self.type_map.contains_key(name) }
-  pub fn add_type(&mut self, name: String, ty: Literal) {
+  pub fn add_type(&mut self, name: String, ty: AnonType) {
     if let Some(prev) = self.type_map.insert(name.clone(), ty.clone()) {
       if prev != ty {
         panic!("type mismatch for {name}\n{prev:?}\n{ty:?}");
@@ -97,7 +97,7 @@ impl<'a> Generator<'a> {
       self.types.push((name, ty));
     }
   }
-  pub fn drain_types(&mut self) -> Vec<(String, Literal)> { std::mem::take(&mut self.types) }
+  pub fn drain_types(&mut self) -> Vec<(String, AnonType)> { std::mem::take(&mut self.types) }
 }
 
 impl Drop for Generator<'_> {
