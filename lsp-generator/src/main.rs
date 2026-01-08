@@ -100,6 +100,10 @@ fn generate_struct_fields(
       continue;
     }
 
+    if matches!(field.ty, Type::StringLiteral { .. }) {
+      continue;
+    }
+
     g.write_doc(&field.documentation);
 
     if field.optional {
@@ -675,9 +679,7 @@ fn write_type(g: &mut Generator, ty: &Type, name_hint: Vec<String>) {
       g.write(">");
     }
 
-    Type::StringLiteral { value } => {
-      g.write(format_args!("String /* \"{}\" */", value));
-    }
+    Type::StringLiteral { .. } => panic!("string literal should not be written"),
 
     Type::Literal { value } => {
       if value.properties.is_empty() {
