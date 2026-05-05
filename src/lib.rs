@@ -46,7 +46,8 @@ use serde::{Deserialize, Serialize};
 /// This relies on the LSP spec putting the "default" variant first. Ordering is
 /// maintained between unions in the LSP spec and the order of generic arguments
 /// in generated code.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(not(feature = "raw_value"), derive(Deserialize))]
 #[serde(untagged)]
 pub enum Or2<A, B> {
   A(A),
@@ -60,12 +61,89 @@ pub enum Or2<A, B> {
 /// This relies on the LSP spec putting the "default" variant first. Ordering is
 /// maintained between unions in the LSP spec and the order of generic arguments
 /// in generated code.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(not(feature = "raw_value"), derive(Deserialize))]
 #[serde(untagged)]
 pub enum Or3<A, B, C> {
   A(A),
   B(B),
   C(C),
+}
+
+// `#[serde(untagged)]` buffers content into serde's internal `Content` type
+// before trying each variant. serde_json's `RawValue` requires serde_json's own
+// deserializer and breaks when fed a `ContentDeserializer`. Using
+// `Box<RawValue>` as the intermediate captures raw JSON bytes, and
+// `serde_json::from_str` gives each variant attempt a proper serde_json
+// deserializer.
+#[cfg(feature = "raw_value")]
+impl<'de, A: serde::de::DeserializeOwned, B: serde::de::DeserializeOwned> Deserialize<'de>
+  for Or2<A, B>
+{
+  fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+    let raw = Box::<serde_json::value::RawValue>::deserialize(d)?;
+
+    let res_a = serde_json::from_str::<A>(raw.get());
+    let err_a = match res_a {
+      Ok(a) => return Ok(Or2::A(a)),
+      Err(e) => e,
+    };
+
+    let res_b = serde_json::from_str::<B>(raw.get());
+    let err_b = match res_b {
+      Ok(b) => return Ok(Or2::B(b)),
+      Err(e) => e,
+    };
+
+    Err(serde::de::Error::custom(format!(
+      "Failed to deserialize as both {}: {} and {}: {}",
+      std::any::type_name::<A>(),
+      err_a,
+      std::any::type_name::<B>(),
+      err_b,
+    )))
+  }
+}
+
+#[cfg(feature = "raw_value")]
+impl<
+  'de,
+  A: serde::de::DeserializeOwned,
+  B: serde::de::DeserializeOwned,
+  C: serde::de::DeserializeOwned,
+> Deserialize<'de> for Or3<A, B, C>
+{
+  fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+    let raw = Box::<serde_json::value::RawValue>::deserialize(d)?;
+
+    let res_a = serde_json::from_str::<A>(raw.get());
+    let err_a = match res_a {
+      Ok(a) => return Ok(Or3::A(a)),
+      Err(e) => e,
+    };
+
+    let res_b = serde_json::from_str::<B>(raw.get());
+    let err_b = match res_b {
+      Ok(b) => return Ok(Or3::B(b)),
+      Err(e) => e,
+    };
+
+    let res_c = serde_json::from_str::<C>(raw.get());
+    let err_c = match res_c {
+      Ok(c) => return Ok(Or3::C(c)),
+      Err(e) => e,
+    };
+
+    Err(serde::de::Error::custom(format!(
+      "Failed to deserialize as any of {}: {}, {}: {}, and {}: {}",
+      std::any::type_name::<A>(),
+      err_a,
+      std::any::type_name::<B>(),
+      err_b,
+      std::any::type_name::<C>(),
+      err_c,
+    )))
+  }
 }
 
 impl<A: Default, B> Default for Or2<A, B> {
@@ -138,6 +216,39 @@ mod tests {
         ..Default::default()
       },
       r#"{"save":{"includeText":true}}"# as TextDocumentSyncOptions
+    );
+  }
+
+  // Tests untagged values + raw values. These fundamentally do not work together:
+  // serde's default untagged deserializer breaks serde_json's raw value
+  // deserializer. So, we have a custom untagged deserializer, which just uses
+  // raw_value directly. This is to test that all these bit's play
+  // nicely together.
+  #[test]
+  fn double_untagged() {
+    type DoubleUntagged = Or2<u32, DoubleObj>;
+    #[derive(Debug, Serialize, Deserialize)]
+    struct DoubleObj {
+      outer: Or2<u32, SingleObj>,
+    }
+    #[derive(Debug, Serialize, Deserialize)]
+    struct SingleObj {
+      inner: Value,
+    }
+
+    assert_serde!(
+      &DoubleUntagged::B(DoubleObj {
+        outer: Or2::B(SingleObj {
+          #[cfg(not(feature = "raw_value"))]
+          inner:                                    Value::Number(3.into()),
+          #[cfg(feature = "raw_value")]
+          inner:                                    serde_json::value::RawValue::from_string(
+            "3".into()
+          )
+          .unwrap(),
+        }),
+      }),
+      r#"{"outer":{"inner":3}}"# as DoubleUntagged
     );
   }
 }
